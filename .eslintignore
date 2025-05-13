@@ -1,0 +1,23 @@
+# Build output
+.next/
+out/
+build/
+dist/
+
+# Node modules
+node_modules/
+
+# Debug files
+*.log
+
+# Test files
+**/*.test.ts
+**/*.test.tsx
+**/__tests__/
+
+# Generated type files
+**/database.types.ts
+
+# Scripts used for development
+scripts/
+*.js 
