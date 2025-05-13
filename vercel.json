@@ -1,6 +1,5 @@
 {
   "buildCommand": "npm run build:prod",
-  "ignoreCommand": "echo 'Skipping checks to allow deployment'",
   "framework": "nextjs",
   "installCommand": "npm install",
   "outputDirectory": ".next",
