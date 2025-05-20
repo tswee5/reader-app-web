@@ -16,10 +16,14 @@ const CLAUDE_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_K
 
 export async function POST(req: Request) {
   try {
-    if (!process.env.CLAUDE_API_KEY) {
-      console.error("CLAUDE_API_KEY is not set");
+    // Check if API key is configured
+    if (!CLAUDE_API_KEY) {
+      console.error("Claude API key is not set. Check environment variables ANTHROPIC_API_KEY or CLAUDE_API_KEY");
       return NextResponse.json(
-        { error: "AI service configuration error", details: "API key not configured" },
+        { 
+          error: "AI service configuration error", 
+          details: "API key not configured. Contact the site administrator." 
+        },
         { status: 500 }
       );
     }
@@ -171,7 +175,7 @@ export async function POST(req: Request) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.CLAUDE_API_KEY,
+        'x-api-key': CLAUDE_API_KEY,
         'anthropic-version': getClaudeApiVersion()
       },
       body: JSON.stringify({
@@ -229,6 +233,35 @@ export async function POST(req: Request) {
       );
     }
 
+    // Save the message to the database if a conversation ID was provided
+    const conversationId = requestData.conversationId;
+    if (conversationId) {
+      try {
+        // Save the user message first
+        await supabaseService
+          .from('ai_messages')
+          .insert({
+            conversation_id: conversationId,
+            role: 'user',
+            content: userMessage,
+            created_at: new Date().toISOString()
+          });
+          
+        // Then save the AI response
+        await supabaseService
+          .from('ai_messages')
+          .insert({
+            conversation_id: conversationId,
+            role: 'assistant',
+            content: answer,
+            created_at: new Date().toISOString()
+          });
+      } catch (dbError) {
+        console.error('Error saving messages to database:', dbError);
+        // Continue with the response even if saving to DB fails
+      }
+    }
+
     // Log conversation to database
     try {
       await supabaseService
@@ -246,7 +279,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({
-      answer: answer
+      response: answer
     })
   } catch (error) {
     console.error("Unhandled error in chat API route:", error);

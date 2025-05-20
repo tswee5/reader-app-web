@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { 
   Play, 
   Pause, 
@@ -46,9 +46,10 @@ interface ArticleSpeechPlayerProps {
   articleId: string;
   content: string;
   title: string;
+  onClose?: () => void;
 }
 
-export function ArticleSpeechPlayer({ articleId, content, title }: ArticleSpeechPlayerProps) {
+export function ArticleSpeechPlayer({ articleId, content, title, onClose }: ArticleSpeechPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -75,6 +76,9 @@ export function ArticleSpeechPlayer({ articleId, content, title }: ArticleSpeech
   const handleEndedRef = useRef<EventListener>(() => {
     handleAudioEndedRef.current();
   });
+
+  // Add a ref to track the previously highlighted word element
+  const highlightedWordRef = useRef<HTMLElement | null>(null);
 
   // Split the content into words for highlighting
   useEffect(() => {
@@ -572,6 +576,124 @@ export function ArticleSpeechPlayer({ articleId, content, title }: ArticleSpeech
     return totalWords / wordsPerSecond;
   };
 
+  // Function to highlight the current word in the article
+  const highlightCurrentWord = useCallback(() => {
+    // First, remove highlight from previous word if any
+    if (highlightedWordRef.current) {
+      highlightedWordRef.current.classList.remove('tts-active-word');
+      highlightedWordRef.current = null;
+    }
+    
+    // If we have a valid word index, try to find and highlight it
+    if (currentWordIndex >= 0 && currentWord) {
+      // Get all text nodes in the article
+      const articleElement = document.querySelector("article");
+      if (!articleElement) return;
+      
+      // Find word elements that match the current word
+      // Using a generous selector to find text content - adjust as needed for your HTML structure
+      const textElements = articleElement.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, span, div');
+      
+      // Find the element containing our word
+      for (const element of Array.from(textElements)) {
+        const text = element.textContent || '';
+        const words = text.split(/\s+/);
+        
+        // Check if this element contains our word
+        const wordIndex = words.findIndex(w => 
+          w.replace(/[.,;:!?'"()[\]{}]/g, '').toLowerCase() === 
+          currentWord.replace(/[.,;:!?'"()[\]{}]/g, '').toLowerCase()
+        );
+        
+        if (wordIndex >= 0) {
+          // We found an element with our word, now we need to highlight it
+          try {
+            // Try to find the specific word within the element
+            const clone = element.cloneNode(true) as HTMLElement;
+            const range = document.createRange();
+            const selection = window.getSelection();
+            
+            // Create a temporary element to find the word positions
+            const tempElement = document.createElement('div');
+            tempElement.innerHTML = text;
+            
+            // Find the word position
+            let currentPos = 0;
+            for (let i = 0; i < wordIndex; i++) {
+              currentPos = text.indexOf(words[i], currentPos) + words[i].length;
+            }
+            
+            const wordStart = text.indexOf(words[wordIndex], currentPos);
+            const wordEnd = wordStart + words[wordIndex].length;
+            
+            // Add a span around the word
+            if (element.childNodes.length === 1 && element.childNodes[0].nodeType === Node.TEXT_NODE) {
+              // If the element has just one text node, we can safely wrap the word
+              const textNode = element.childNodes[0];
+              
+              const wordSpan = document.createElement('span');
+              wordSpan.className = 'tts-active-word';
+              
+              // Split the text node into three parts: before, word, after
+              const beforeText = text.substring(0, wordStart);
+              const wordText = text.substring(wordStart, wordEnd);
+              const afterText = text.substring(wordEnd);
+              
+              // Remove original text node
+              element.removeChild(textNode);
+              
+              // Add the three new parts
+              if (beforeText) {
+                element.appendChild(document.createTextNode(beforeText));
+              }
+              
+              wordSpan.appendChild(document.createTextNode(wordText));
+              element.appendChild(wordSpan);
+              
+              if (afterText) {
+                element.appendChild(document.createTextNode(afterText));
+              }
+              
+              // Save reference to the highlighted word
+              highlightedWordRef.current = wordSpan;
+              
+              // Break the loop since we found and highlighted the word
+              break;
+            } else {
+              // If element has multiple child nodes, it's more complex
+              // For simplicity, we'll just add a class to the parent element
+              element.classList.add('tts-active-word');
+              highlightedWordRef.current = element as HTMLElement;
+              break;
+            }
+          } catch (e) {
+            console.error("Error highlighting word:", e);
+          }
+        }
+      }
+    }
+  }, [currentWord, currentWordIndex]);
+  
+  // Call the highlight function whenever the current word changes
+  useEffect(() => {
+    if (isPlaying && !isPaused) {
+      highlightCurrentWord();
+    } else if (!isPlaying && highlightedWordRef.current) {
+      // Remove highlight when not playing
+      highlightedWordRef.current.classList.remove('tts-active-word');
+      highlightedWordRef.current = null;
+    }
+  }, [currentWord, currentWordIndex, isPlaying, isPaused, highlightCurrentWord]);
+  
+  // Clean up highlighted word on unmount
+  useEffect(() => {
+    return () => {
+      if (highlightedWordRef.current) {
+        highlightedWordRef.current.classList.remove('tts-active-word');
+      }
+    };
+  }, []);
+
   // Clean up on unmount
   useEffect(() => {
     return () => {
@@ -592,147 +714,170 @@ export function ArticleSpeechPlayer({ articleId, content, title }: ArticleSpeech
   const estimatedTotalDuration = calculateTotalDuration();
 
   return (
-    <div className="flex flex-col space-y-3 rounded-lg border p-4 shadow-sm sticky top-4 bg-white z-40">
-      {/* Player Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <div className="h-8 w-8 rounded-md bg-gray-100 flex items-center justify-center">
-            <div className="h-4 w-4 rounded-full bg-gray-300 flex items-center justify-center">
-              <div className="h-2 w-2 rounded-full bg-gray-500"></div>
+    <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 w-[96%] max-w-3xl z-50 animate-in fade-in-50 slide-in-from-bottom-5 duration-300">
+      <div className="flex flex-col space-y-3 rounded-xl border bg-background p-4 shadow-lg backdrop-blur-sm">
+        {/* Player Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <div className="h-8 w-8 rounded-md bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+              <div className="h-4 w-4 rounded-full bg-blue-200 dark:bg-blue-800 flex items-center justify-center">
+                <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+              </div>
             </div>
+            <h3 className="text-sm font-medium">Article Audio</h3>
           </div>
-          <h3 className="text-sm font-medium">AI Supremacy</h3>
+          
+          <div className="flex items-center space-x-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs px-2 rounded-full">
+                  {playbackSpeed}x
+                  <ChevronDown className="h-3 w-3 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent 
+                align="center" 
+                side="top" 
+                sideOffset={5}
+                className="w-24 z-[100]"
+              >
+                <DropdownMenuLabel className="px-3 py-2">Playback Speed</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {PLAYBACK_SPEEDS.map(speed => (
+                  <DropdownMenuItem 
+                    key={speed}
+                    className={
+                      speed === playbackSpeed 
+                        ? "bg-slate-100 hover:bg-slate-200 focus:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700" 
+                        : "hover:bg-slate-100 focus:bg-slate-100 dark:hover:bg-slate-800"
+                    }
+                    onClick={() => changePlaybackSpeed(speed)}
+                  >
+                    {speed}x
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full">
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent 
+                align="end" 
+                side="top" 
+                sideOffset={5}
+                className="w-56 z-[100]"
+              >
+                <DropdownMenuLabel className="px-3 py-2">Voice Selection</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {VOICES.map(voice => (
+                  <DropdownMenuItem 
+                    key={voice.id}
+                    className={
+                      voice.id === currentVoice.id 
+                        ? "bg-slate-100 hover:bg-slate-200 focus:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700" 
+                        : "hover:bg-slate-100 focus:bg-slate-100 dark:hover:bg-slate-800"
+                    }
+                    onClick={() => changeVoice(voice)}
+                  >
+                    {voice.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-8 w-8 p-0 rounded-full"
+              onClick={onClose}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         
-        <div className="flex items-center space-x-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs px-2 rounded-full">
-                {playbackSpeed}x
-                <ChevronDown className="h-3 w-3 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent 
-              align="center" 
-              side="bottom" 
-              sideOffset={5}
-              className="w-24 z-[100] bg-white shadow-lg rounded-md border border-gray-200"
-            >
-              <DropdownMenuLabel className="px-3 py-2">Playback Speed</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {PLAYBACK_SPEEDS.map(speed => (
-                <DropdownMenuItem 
-                  key={speed}
-                  className={
-                    speed === playbackSpeed 
-                      ? "bg-slate-100 hover:bg-slate-200 focus:bg-slate-200" 
-                      : "bg-white hover:bg-slate-100 focus:bg-slate-100"
-                  }
-                  onClick={() => changePlaybackSpeed(speed)}
-                >
-                  {speed}x
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+        {/* Progress Bar */}
+        <div className="flex items-center space-x-2 text-xs">
+          <span className="text-muted-foreground w-10">{formatTime(currentTime)}</span>
+          <Slider
+            value={[audioRef.current ? (currentTime / audioRef.current.duration) * 100 : 0]}
+            max={100}
+            step={0.1}
+            onValueChange={handleProgressChange}
+            className="flex-1"
+          />
+          <span className="text-muted-foreground w-10">
+            {isPlaying && audioRef.current 
+              ? formatTime(audioRef.current.duration) 
+              : formatTime(estimatedTotalDuration)}
+          </span>
+        </div>
+        
+        {/* Playback Controls */}
+        <div className="flex items-center justify-center space-x-6">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={seekBackward}
+            disabled={!isPlaying}
+            className="h-10 w-10 rounded-full p-0"
+          >
+            <RotateCcw className="h-5 w-5" />
+          </Button>
           
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full">
-                <Settings className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent 
-              align="end" 
-              side="bottom" 
-              sideOffset={5}
-              className="w-56 z-[100] bg-white shadow-lg rounded-md border border-gray-200"
-            >
-              <DropdownMenuLabel className="px-3 py-2">Voice Selection</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {VOICES.map(voice => (
-                <DropdownMenuItem 
-                  key={voice.id}
-                  className={
-                    voice.id === currentVoice.id 
-                      ? "bg-slate-100 hover:bg-slate-200 focus:bg-slate-200" 
-                      : "bg-white hover:bg-slate-100 focus:bg-slate-100"
-                  }
-                  onClick={() => changeVoice(voice)}
-                >
-                  {voice.name}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button
+            onClick={togglePlayPause}
+            disabled={isLoading}
+            className="h-12 w-12 rounded-full p-0 bg-blue-500 hover:bg-blue-600 text-white"
+          >
+            {isLoading ? (
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            ) : isPlaying && !isPaused ? (
+              <Pause className="h-5 w-5" />
+            ) : (
+              <Play className="h-5 w-5 ml-1" />
+            )}
+          </Button>
           
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full">
-            <X className="h-4 w-4" />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={seekForward}
+            disabled={!isPlaying}
+            className="h-10 w-10 rounded-full p-0"
+          >
+            <RotateCw className="h-5 w-5" />
           </Button>
         </div>
-      </div>
-      
-      {/* Progress Bar */}
-      <div className="flex items-center space-x-2 text-xs">
-        <span className="text-muted-foreground w-10">{formatTime(currentTime)}</span>
-        <Slider
-          value={[audioRef.current ? (currentTime / audioRef.current.duration) * 100 : 0]}
-          max={100}
-          step={0.1}
-          onValueChange={handleProgressChange}
-          className="flex-1"
-        />
-        <span className="text-muted-foreground w-10">
-          {isPlaying && audioRef.current 
-            ? formatTime(audioRef.current.duration) 
-            : formatTime(estimatedTotalDuration)}
-        </span>
-      </div>
-      
-      {/* Playback Controls */}
-      <div className="flex items-center justify-center space-x-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={seekBackward}
-          disabled={!isPlaying}
-          className="h-10 w-10 rounded-full p-0"
-        >
-          <RotateCcw className="h-5 w-5" />
-        </Button>
         
-        <Button
-          onClick={togglePlayPause}
-          disabled={isLoading}
-          className="h-12 w-12 rounded-full p-0 bg-blue-500 hover:bg-blue-600 text-white"
-        >
-          {isLoading ? (
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-          ) : isPlaying && !isPaused ? (
-            <Pause className="h-5 w-5" />
-          ) : (
-            <Play className="h-5 w-5 ml-1" />
-          )}
-        </Button>
-        
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={seekForward}
-          disabled={!isPlaying}
-          className="h-10 w-10 rounded-full p-0"
-        >
-          <RotateCw className="h-5 w-5" />
-        </Button>
-      </div>
-      
-      {/* Current Word Highlight (in article text this would highlight the current word) */}
-      {currentWord && (
-        <div className="text-xs text-center mt-2">
-          <span>Current word: </span>
-          <span className="bg-blue-100 px-1 rounded">{currentWord}</span>
+        {/* Volume control */}
+        <div className="flex items-center space-x-2 pt-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleMute}
+            className="h-8 w-8 p-0 rounded-full"
+          >
+            {isMuted ? (
+              <VolumeX className="h-4 w-4" />
+            ) : (
+              <Volume2 className="h-4 w-4" />
+            )}
+          </Button>
+          
+          <Slider
+            value={[volume]}
+            max={100}
+            step={1}
+            onValueChange={handleVolumeChange}
+            className="w-24"
+          />
         </div>
-      )}
+      </div>
     </div>
   );
 } 

@@ -214,6 +214,53 @@ export function LibraryContent() {
   // Get the selected tag details
   const selectedTag = selectedTagId ? tags.find(tag => tag.id === selectedTagId) : null;
 
+  // Add a refresh function that re-fetches articles and tags
+  const refreshLibrary = useCallback(async () => {
+    if (!user) return;
+    
+    setIsLoading(true);
+    try {
+      console.log("Refreshing library...");
+      
+      // Fetch articles
+      const { data: fetchedArticles, error } = await supabase
+        .from("articles")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error refreshing articles:", error);
+        
+        // Fall back to admin fetching
+        const adminArticles = await adminFetch(user.id);
+        if (adminArticles.length > 0) {
+          setArticles(adminArticles);
+        } else {
+          setError("Failed to refresh articles");
+        }
+      } else {
+        // For each article, fetch its tags
+        const articlesWithTags = await Promise.all(
+          (fetchedArticles || []).map(async (article) => {
+            const tags = await fetchArticleTags(article.id);
+            return { ...article, tags };
+          })
+        );
+        
+        setArticles(articlesWithTags);
+      }
+      
+      // Refresh tags
+      await fetchTags();
+    } catch (err) {
+      console.error("Error in library refresh:", err);
+      setError("An unexpected error occurred");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, supabase, adminFetch, fetchArticleTags, fetchTags]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-12">
@@ -323,7 +370,11 @@ export function LibraryContent() {
         </div>
       )}
 
-      <ArticleList articles={articles} selectedTagId={selectedTagId || undefined} />
+      <ArticleList 
+        articles={articles} 
+        selectedTagId={selectedTagId || undefined} 
+        onRefresh={refreshLibrary} 
+      />
     </>
   );
 } 

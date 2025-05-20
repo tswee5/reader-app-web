@@ -5,30 +5,37 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { format } from "date-fns";
 import { useSupabase } from "@/components/providers/supabase-provider";
-import { ReadingProgressTracker } from "@/components/articles/reading-progress-tracker";
 import { TextHighlighter } from "@/components/articles/highlighting/text-highlighter";
 import { TagSelector } from "@/components/articles/tags/tag-selector";
 import { ArticleAIAssistant } from "@/components/articles/ai/article-ai-assistant";
-import { ArticleSummarizer } from "@/components/articles/ai/article-summarizer";
-import { ArticleQuestionAnswerer } from "@/components/articles/ai/article-question-answerer";
 import { ArticleSpeechPlayer } from "@/components/articles/tts/article-speech-player";
 import { useToast } from "@/components/ui/use-toast";
-import { Toaster } from "@/components/ui/toaster";
-import { NoteList } from "@/components/articles/notes/note-list";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { 
-  MessageSquare, 
-  BookOpen, 
-  X, 
-  Trash2, 
-  ArrowUpRight,
-  BookOpen as BookOpenIcon, 
-  Highlighter as HighlighterIcon,
-  GripVertical,
-  Bot
+  X,
+  Bot,
+  MoreVertical,
+  Copy,
+  Check,
+  Pencil,
+  ArrowLeft,
+  Plus,
+  Edit,
+  Trash,
+  ArrowRight,
+  ExternalLink
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ArticleToolbar } from "@/components/articles/toolbar/article-toolbar";
 
 type Article = {
   id: string;
@@ -37,9 +44,15 @@ type Article = {
   author?: string | null;
   published_date?: string | null;
   domain?: string | null;
+  url?: string | null;
   lead_image_url?: string | null;
   estimated_read_time?: number | null;
   reading_progress?: number | null;
+  tags?: Array<{
+    id: string;
+    name: string;
+    color: string;
+  }>;
 };
 
 // Define the Highlight type
@@ -84,10 +97,10 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
   const [activeTab, setActiveTab] = useState<string>("highlights");
   
   // Add state for resizable sidebar
-  const [sidebarWidth, setSidebarWidth] = useState(400); // Default width in pixels
+  const [sidebarWidth, setSidebarWidth] = useState(320); // Default width in pixels 
   const [isResizing, setIsResizing] = useState(false);
-  const minWidth = 300; // Minimum sidebar width
-  const maxWidth = 800; // Maximum sidebar width
+  const minWidth = 280; // Minimum sidebar width
+  const maxWidth = 500; // Maximum sidebar width
   const resizeRef = useRef<HTMLDivElement>(null);
   
   // Add state for screen width
@@ -96,12 +109,28 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
   // Add state for active highlight
   const [activeHighlightId, setActiveHighlightId] = useState<string | null>(null);
   
+  // Add state for AI panel
+  const [showAIPanel, setShowAIPanel] = useState(false);
+  const [aiActiveTab, setAIActiveTab] = useState<string>("chat");
+  
   // Add state for mobile panel height
   const [mobilePanelHeight, setMobilePanelHeight] = useState(50); // Default 50vh (half screen)
   const minPanelHeight = 25; // Minimum 25vh
   const maxPanelHeight = 90; // Maximum 90vh
   const [touchStartY, setTouchStartY] = useState(0);
   const [initialHeight, setInitialHeight] = useState(0);
+  
+  // Add state for delete confirmation dialog
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  
+  // Add state for AI panel resizing
+  const [aiPanelWidth, setAiPanelWidth] = useState(400); // Increased default width for better usability
+  const isResizingRef = useRef(false);
+  const startXRef = useRef(0);
+  const startWidthRef = useRef(0);
+  
+  // Add state for TTS player visibility
+  const [showTTSPlayer, setShowTTSPlayer] = useState(false);
   
   // Load saved sidebar width from localStorage on component mount
   useEffect(() => {
@@ -131,6 +160,19 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
     return () => {
       window.removeEventListener('resize', checkMobile);
     };
+  }, []);
+
+  // Load saved AI panel width from localStorage with wider constraints
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedWidth = localStorage.getItem('aiPanelWidth');
+      if (savedWidth) {
+        const width = parseInt(savedWidth, 10);
+        if (!isNaN(width) && width >= 250 && width <= 800) {
+          setAiPanelWidth(width);
+        }
+      }
+    }
   }, []);
 
   // Fetch the article from the admin endpoint as a fallback
@@ -564,7 +606,7 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
     return textNodes;
   };
 
-  // Handle highlight creation - refresh data when activated
+  // Add the handleHighlightCreated function which is referenced in the TextHighlighter component
   const handleHighlightCreated = useCallback(() => {
     loadHighlights();
     loadNotes();
@@ -677,23 +719,17 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
 
   // Adjust the font size calculation to ensure it scales better with the sidebar width
   const calculateFontSize = useMemo(() => {
-    // More responsive scaling formula
-    const minFontSize = 14;
-    const maxFontSize = 20; // Increase max font size to make scaling more noticeable
-    const widthRange = maxWidth - minWidth;
-    
-    // Calculate size with improved linear scaling
-    const scaleFactor = Math.pow((sidebarWidth - minWidth) / widthRange, 0.8); // Slightly non-linear for better perception
-    const fontSize = minFontSize + scaleFactor * (maxFontSize - minFontSize);
-    
-    // Round to nearest 0.5px for consistency
-    return Math.max(minFontSize, Math.min(maxFontSize, Math.round(fontSize * 2) / 2));
-  }, [sidebarWidth, minWidth, maxWidth]);
+    if (isMobile) return 14;
+    const baseFontSize = 14;
+    const minFontSize = 12;
+    const maxFontSize = 16;
+    const calculatedSize = baseFontSize * (sidebarWidth / 400);
+    return Math.max(minFontSize, Math.min(maxFontSize, calculatedSize));
+  }, [sidebarWidth, isMobile]);
   
-  // Calculate line height based on font size for better readability
+  // Calculate line height based on font size
   const calculateLineHeight = useMemo(() => {
-    // Adjust line height based on font size - larger fonts need more line height
-    return Math.min(1.8, 1.3 + (calculateFontSize - 14) * 0.06);
+    return `${Math.round(calculateFontSize * 1.5)}px`;
   }, [calculateFontSize]);
 
   // Add touch event handlers for mobile panel resizing
@@ -756,6 +792,325 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
     };
   }, [isMobile, handleTouchMove, handleTouchEnd]);
 
+  // Handle AI panel resizing
+  const startResize = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    isResizingRef.current = true;
+    startXRef.current = e.clientX;
+    startWidthRef.current = aiPanelWidth;
+    
+    // Only change the cursor on the body when actively resizing
+    document.body.style.cursor = 'ew-resize';
+    document.body.style.userSelect = 'none';
+    
+    document.addEventListener('mousemove', handleResize);
+    document.addEventListener('mouseup', stopResize);
+  }, [aiPanelWidth]);
+
+  const handleResize = useCallback((e: MouseEvent) => {
+    if (!isResizingRef.current) return;
+    
+    // Prevent default behavior and stop propagation
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // For a left-edge resize handle, the logic is reverse of right-edge handles:
+    // - When dragging left (e.clientX < startXRef.current), the panel should grow wider
+    // - When dragging right (e.clientX > startXRef.current), the panel should get narrower
+    
+    // Calculate the movement distance
+    const deltaX = e.clientX - startXRef.current;
+    
+    // Apply the inverse relationship: 
+    // - Positive deltaX (moving right) = decrease width
+    // - Negative deltaX (moving left) = increase width
+    const newWidth = startWidthRef.current - deltaX;
+    
+    // Apply constraints - using wider min/max range
+    const constrainedWidth = Math.max(250, Math.min(800, newWidth));
+    
+    // Directly manipulate DOM for smoother resizing
+    const aiPanel = document.querySelector('[data-ai-panel="true"]');
+    if (aiPanel) {
+      (aiPanel as HTMLElement).style.width = `${constrainedWidth}px`;
+    }
+    
+    // Update state (less frequently than DOM updates for performance)
+    setAiPanelWidth(constrainedWidth);
+  }, []);
+
+  const stopResize = useCallback((e?: MouseEvent) => {
+    if (!isResizingRef.current) return;
+    
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    isResizingRef.current = false;
+    
+    // Reset cursor and user-select when done resizing
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    
+    document.removeEventListener('mousemove', handleResize);
+    document.removeEventListener('mouseup', stopResize);
+    
+    // Get final width directly from DOM to ensure accuracy
+    const aiPanel = document.querySelector('[data-ai-panel="true"]');
+    if (aiPanel) {
+      const finalWidth = aiPanel.getBoundingClientRect().width;
+      setAiPanelWidth(Math.round(finalWidth));
+      
+      // Save the width preference to localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('aiPanelWidth', Math.round(finalWidth).toString());
+      }
+    }
+  }, [handleResize]);
+
+  // Clean up event listeners and ensure cursor is reset on unmount
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('mousemove', handleResize);
+      document.removeEventListener('mouseup', stopResize);
+      // Reset cursor on component unmount as a safety measure
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [handleResize, stopResize]);
+
+  // Toggle AI panel
+  const toggleAIPanel = () => {
+    setShowAIPanel(!showAIPanel);
+  };
+
+  // Toggle TTS player
+  const toggleTTSPlayer = () => {
+    setShowTTSPlayer(prev => !prev);
+  };
+
+  // Add function to delete article
+  const deleteArticle = async () => {
+    if (!user) return;
+    
+    setIsLoading(true);
+    
+    try {
+      // First, delete all associated highlights
+      const { data: highlightsData, error: highlightsError } = await supabase
+        .from("highlights")
+        .delete()
+        .eq("article_id", articleId)
+        .eq("user_id", user.id);
+        
+      if (highlightsError) {
+        console.error("Error deleting highlights:", highlightsError);
+        toast({
+          title: "Error",
+          description: "Failed to delete article highlights.",
+          variant: "destructive"
+        });
+        setIsLoading(false);
+        return;
+      }
+      
+      // Delete all associated notes
+      const { data: notesData, error: notesError } = await supabase
+        .from("notes")
+        .delete()
+        .eq("article_id", articleId)
+        .eq("user_id", user.id);
+        
+      if (notesError) {
+        console.error("Error deleting notes:", notesError);
+        toast({
+          title: "Error",
+          description: "Failed to delete article notes.",
+          variant: "destructive"
+        });
+        setIsLoading(false);
+        return;
+      }
+      
+      // Delete article tags
+      const { error: tagsError } = await supabase
+        .from("article_tags")
+        .delete()
+        .eq("article_id", articleId)
+        .eq("user_id", user.id);
+        
+      if (tagsError) {
+        console.error("Error deleting article tags:", tagsError);
+        // Continue with deletion even if tags fail
+      }
+      
+      // Finally delete the article itself
+      const { error: articleError } = await supabase
+        .from("articles")
+        .delete()
+        .eq("id", articleId)
+        .eq("user_id", user.id);
+        
+      if (articleError) {
+        console.error("Error deleting article:", articleError);
+        toast({
+          title: "Error",
+          description: "Failed to delete article.",
+          variant: "destructive"
+        });
+        setIsLoading(false);
+        return;
+      }
+      
+      toast({
+        title: "Article deleted",
+        description: "The article has been removed from your library.",
+      });
+      
+      // Redirect to library
+      router.push('/library');
+    } catch (err) {
+      console.error("Unexpected error deleting article:", err);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Add the getTagColorClass function
+  const getTagColorClass = (color: string) => {
+    switch (color) {
+      case "gray": return "bg-gray-200 dark:bg-gray-700";
+      case "red": return "bg-red-200 dark:bg-red-700";
+      case "orange": return "bg-orange-200 dark:bg-orange-700";
+      case "amber": return "bg-amber-200 dark:bg-amber-700";
+      case "yellow": return "bg-yellow-200 dark:bg-yellow-700";
+      case "lime": return "bg-lime-200 dark:bg-lime-700";
+      case "green": return "bg-green-200 dark:bg-green-700";
+      case "emerald": return "bg-emerald-200 dark:bg-emerald-700";
+      case "teal": return "bg-teal-200 dark:bg-teal-700";
+      case "cyan": return "bg-cyan-200 dark:bg-cyan-700";
+      case "sky": return "bg-sky-200 dark:bg-sky-700";
+      case "blue": return "bg-blue-200 dark:bg-blue-700";
+      case "indigo": return "bg-indigo-200 dark:bg-indigo-700";
+      case "violet": return "bg-violet-200 dark:bg-violet-700";
+      case "purple": return "bg-purple-200 dark:bg-purple-700";
+      case "fuchsia": return "bg-fuchsia-200 dark:bg-fuchsia-700";
+      case "pink": return "bg-pink-200 dark:bg-pink-700";
+      case "rose": return "bg-rose-200 dark:bg-rose-700";
+      default: return "bg-gray-200 dark:bg-gray-700";
+    };
+  };
+
+  // Add the removeTagFromArticle function
+  const removeTagFromArticle = async (tagId: string) => {
+    if (!user) return;
+    
+    try {
+      const { error } = await supabase
+        .from("article_tags")
+        .delete()
+        .eq("article_id", articleId)
+        .eq("tag_id", tagId)
+        .eq("user_id", user.id);
+        
+      if (error) {
+        toast({
+          title: "Error removing tag",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Update article tags in state
+      if (article && article.tags) {
+        setArticle({
+          ...article,
+          tags: article.tags.filter(tag => tag.id !== tagId)
+        });
+      }
+      
+      toast({
+        title: "Tag removed",
+        description: "Tag has been removed from this article",
+      });
+    } catch (err) {
+      console.error("Error removing tag from article:", err);
+    }
+  };
+
+  // Add saveHighlight function
+  const saveHighlight = async (highlightData: any) => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('highlights')
+        .insert({
+          user_id: user.id,
+          article_id: articleId,
+          ...highlightData
+        })
+        .select()
+        .single();
+        
+      if (error) {
+        console.error("Error creating highlight:", error);
+        toast({
+          title: "Error",
+          description: "Failed to save highlight",
+          variant: "destructive"
+        });
+        return null;
+      }
+      
+      // Add the new highlight to state
+      setHighlights(prev => [...prev, data]);
+      
+      toast({
+        title: "Highlight created",
+        description: "Text has been highlighted successfully",
+      });
+      
+      return data;
+    } catch (err) {
+      console.error("Error saving highlight:", err);
+      return null;
+    }
+  };
+
+  // Add handleHighlightSelect function
+  const handleHighlightSelect = (highlightId: string) => {
+    setActiveHighlightId(highlightId);
+    
+    // Find the highlight element in the DOM
+    const highlightElement = document.querySelector(
+      `[data-highlight-id="${highlightId}"]`
+    );
+
+    if (highlightElement) {
+      // Clear any existing highlight effects
+      const existingHighlights = document.querySelectorAll(".highlight-pulse");
+      existingHighlights.forEach(el => {
+        el.classList.remove("highlight-pulse");
+      });
+      
+      // Scroll to the highlight
+      highlightElement.scrollIntoView({ behavior: "smooth", block: "center" });
+      
+      // Apply a highlight effect
+      highlightElement.classList.add("highlight-pulse");
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-12">
@@ -790,340 +1145,159 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
     : null;
 
   return (
-    <div className="container max-w-4xl py-10">
-      <Toaster />
-
-      <style jsx global>{`
-        body {
-          ${isResizing ? 'cursor: ew-resize !important;' : ''}
-          ${isResizing ? 'user-select: none !important;' : ''}
-        }
-        
-        .highlight-pulse {
-          position: relative;
-          z-index: 10;
-          box-shadow: 0 0 0 3px rgba(255, 220, 40, 0.7);
-          border-radius: 2px;
-          background-color: rgba(255, 220, 40, 0.2) !important;
-          transition: box-shadow 0.3s ease, background-color 0.3s ease;
-        }
-
-        ${isMobile && showNotesPanel ? `
-          :root {
-            --panel-height: ${mobilePanelHeight}vh;
-          }
-        ` : ''}
-      `}</style>
-      
-      <div className="mb-6 flex flex-col gap-4">
-        <div className="flex justify-between">
-          <div></div>
-          
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleNotesPanel}
-              className="flex items-center gap-1"
-              title="Manage Notes and Highlights"
-            >
-              <BookOpen className="h-4 w-4" />
-              <span className="hidden sm:inline">Notes & Highlights</span>
-              {(notes.length > 0 || highlights.length > 0) && (
-                <Badge variant="secondary" className="ml-1">
-                  {notes.length + highlights.length}
-                </Badge>
-              )}
-            </Button>
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push('/library')}
-            >
-              Back to Library
-            </Button>
-          </div>
-        </div>
-        
-        <h1 className="text-3xl font-bold">{article.title}</h1>
-        
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
-          {article.author && (
-            <span>By {article.author}</span>
-          )}
-          
-          {article.domain && (
-            <span className="rounded-full bg-secondary px-2 py-1 text-xs">
-              {article.domain}
-            </span>
-          )}
-          
-          {article.published_date && (
-            <span>
-              Published {format(new Date(article.published_date), 'MMMM d, yyyy')}
-            </span>
-          )}
-          
-          {article.estimated_read_time && (
-            <span>{article.estimated_read_time} min read</span>
-          )}
-        </div>
-        
-        {/* Tags section */}
-        <div className="mt-2">
-          <TagSelector articleId={article.id} />
-        </div>
-      </div>
-      
-      {/* Notes and Highlights Management Panel */}
-      {showNotesPanel && (
-        <div 
-          className={`fixed z-50 rounded-t-lg border bg-background shadow-lg flex flex-col transition-all
-            ${isResizing ? 'select-none' : ''} 
-            ${isMobile ? 'left-0 right-0 bottom-0' : 'top-20 right-8 rounded-lg'}`}
-          style={{ 
-            width: isMobile ? '100%' : `${sidebarWidth}px`,
-            height: isMobile ? `${mobilePanelHeight}vh` : 'auto',
-            maxHeight: isMobile ? `${mobilePanelHeight}vh` : '80vh',
-            overflow: 'hidden', // Prevent any overflow
-            transition: isResizing ? 'none' : 'height 0.2s ease, max-height 0.2s ease'
-          }}
-          ref={resizeRef}
-          data-notes-panel="true"
-        >
-          {/* Resize handle for entire left edge */}
-          {!isMobile && (
-            <div 
-              className="absolute left-0 top-0 bottom-0 w-6 cursor-ew-resize hover:bg-gray-200 dark:hover:bg-gray-700 z-10 group"
-              onMouseDown={handleMouseDown}
-            >
-              <div className="absolute left-0 top-0 bottom-0 w-px bg-border opacity-50"></div>
-              <div className="absolute left-[6px] top-1/2 transform -translate-y-1/2 w-[4px] h-20 rounded-full bg-gray-300 dark:bg-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-            </div>
-          )}
-          
-          {/* Mobile drag handle - now with touch event handlers */}
-          {isMobile && (
-            <div 
-              className={`flex flex-col items-center py-2 cursor-ns-resize touch-none ${isResizing ? 'bg-gray-100 dark:bg-gray-800' : ''}`}
-              onTouchStart={handleTouchStart}
-            >
-              <div className="w-16 h-1.5 bg-gray-400 dark:bg-gray-500 rounded-full"></div>
-              <div className="text-xs text-muted-foreground mt-1 flex items-center">
-                <GripVertical className="h-3 w-3 mr-1" />
-                <span>Drag to resize</span>
-              </div>
-            </div>
-          )}
-          
-          <div className={`flex items-center justify-between border-b ${isMobile ? 'px-3 py-1.5 mb-1' : 'p-3 mb-2'}`}>
-            <h3 className={`font-medium ${isMobile ? 'text-base' : 'text-lg'}`}>Notes & Highlights</h3>
-            <Button variant="ghost" size="sm" onClick={toggleNotesPanel} className="h-8 w-8 p-0">
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close</span>
-            </Button>
-          </div>
-          
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden">
-            <div className={`overflow-hidden ${isMobile ? 'px-2' : 'px-4'}`}>
-              <TabsList className={`grid w-full grid-cols-3 ${isMobile ? 'mb-2' : 'mb-4'}`}>
-                <TabsTrigger value="notes" className="text-sm py-1.5">Notes ({notes.length})</TabsTrigger>
-                <TabsTrigger value="highlights" className="text-sm py-1.5">Highlights ({highlights.length})</TabsTrigger>
-                <TabsTrigger value="ai" className="text-sm py-1.5">AI <Bot className="ml-1 h-3 w-3" /></TabsTrigger>
-              </TabsList>
-            </div>
-            
-            <TabsContent 
-              value="notes" 
-              className={`overflow-y-auto ${isMobile ? `max-h-[calc(${mobilePanelHeight}vh-5rem)]` : 'max-h-[calc(80vh-6rem)]'} ${isMobile ? 'px-2 pb-2' : 'px-4 pb-4'}`}
-              style={{ 
-                fontSize: `${calculateFontSize}px`,
-                lineHeight: calculateLineHeight,
-                transition: isResizing ? 'none' : 'all 0.2s ease'
-              }}
-            >
-              {notes.length === 0 ? (
-                <div className="p-4 text-center text-muted-foreground">
-                  <BookOpenIcon className="mx-auto mb-2 h-10 w-10 opacity-20" />
-                  <p>No notes yet. Highlight text and click "Take a note" to add one.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {notes.map(note => (
-                    <div 
-                      key={note.id} 
-                      className={`rounded-md border p-3 transition-all duration-300 ${
-                        activeNoteId === note.id ? 'border-primary bg-primary/5 shadow-sm' : ''
-                      }`}
-                    >
-                      <div className="mb-2 flex items-start justify-between">
-                        <Badge 
-                          className={getHighlightColorClass(note.highlightColor)}
-                        >
-                          Note
-                        </Badge>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => deleteNote(note.id)}
-                          className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          <span className="sr-only">Delete</span>
-                        </Button>
-                      </div>
-                      
-                      <p className="font-medium mb-2 break-words">"{note.content}"</p>
-                      <p className="text-xs text-muted-foreground break-words">"{note.highlightedText}"</p>
-                      
-                      <div className="mt-2 flex justify-end">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          className="h-7 text-xs"
-                          onClick={() => {
-                            scrollToHighlight(note.highlightId, note.id);
-                          }}
-                          data-highlight-button="true"
-                        >
-                          <ArrowUpRight className="mr-1 h-3 w-3" />
-                          Go to highlight
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-            
-            <TabsContent 
-              value="highlights" 
-              className={`overflow-y-auto ${isMobile ? `max-h-[calc(${mobilePanelHeight}vh-5rem)]` : 'max-h-[calc(80vh-6rem)]'} ${isMobile ? 'px-2 pb-2' : 'px-4 pb-4'}`}
-              style={{ 
-                fontSize: `${calculateFontSize}px`,
-                lineHeight: calculateLineHeight,
-                transition: isResizing ? 'none' : 'all 0.2s ease'
-              }}
-            >
-              {highlights.length === 0 ? (
-                <div className="p-4 text-center text-muted-foreground">
-                  <HighlighterIcon className="mx-auto mb-2 h-10 w-10 opacity-20" />
-                  <p>No highlights yet. Select text to highlight it.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {highlights.map(highlight => (
-                    <div key={highlight.id} className="rounded-md border p-3">
-                      <div className="mb-2 flex items-start justify-between">
-                        <div className={`h-3 w-3 rounded-full bg-${highlight.color}-400`} />
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => deleteHighlight(highlight.id)}
-                          className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          <span className="sr-only">Delete</span>
-                        </Button>
-                      </div>
-                      
-                      <p className="mb-2 break-words">"{highlight.content}"</p>
-                      
-                      <div className="mt-2 flex justify-end">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          className="h-7 text-xs"
-                          onClick={() => {
-                            scrollToHighlight(highlight.id);
-                          }}
-                          data-highlight-button="true"
-                        >
-                          <ArrowUpRight className="mr-1 h-3 w-3" />
-                          Go to highlight
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-            
-            <TabsContent 
-              value="ai" 
-              className={`overflow-y-auto ${isMobile ? `max-h-[calc(${mobilePanelHeight}vh-5rem)]` : 'max-h-[calc(80vh-6rem)]'} ${isMobile ? 'px-2 pb-2' : 'px-4 pb-4'}`}
-              style={{ 
-                fontSize: `${calculateFontSize}px`,
-                lineHeight: calculateLineHeight,
-                transition: isResizing ? 'none' : 'all 0.2s ease'
-              }}
-            >
-              <div className="space-y-4">
-                <ArticleSummarizer articleId={article.id} content={article.content} />
-                <ArticleQuestionAnswerer articleId={article.id} content={article.content} />
-              </div>
-            </TabsContent>
-          </Tabs>
-        </div>
-      )}
-      
-      {/* Reading progress */}
-      <ReadingProgressTracker 
-        articleId={article.id}
-        initialProgress={article.reading_progress || 0}
+    <div className="flex h-screen overflow-hidden bg-background">
+      {/* Replace the old Left Vertical Toolbar with our new component */}
+      <ArticleToolbar 
+        articleId={articleId} 
+        articleUrl={article?.url} 
+        onDeleteClick={() => setShowDeleteDialog(true)}
+        onPlayClick={toggleTTSPlayer}
       />
-      
-      {/* Featured image */}
-      {imageUrl && (
-        <div className="mb-8 mt-4 overflow-hidden rounded-lg">
-          <Image
-            src={imageUrl}
-            alt={article.title}
-            width={1200}
-            height={630}
-            className="h-auto w-full object-cover"
-            priority
-          />
-        </div>
-      )}
-      
-      {/* Text-to-Speech Player */}
-      <div className="mb-8">
-        <ArticleSpeechPlayer 
-          articleId={article.id} 
-          content={article.content} 
-          title={article.title}
-        />
-      </div>
-      
-      <div className="relative flex gap-6">
-        {/* Main content with article */}
-        <div 
-          className={`relative flex-1 ${isMobile && showNotesPanel ? 'pb-[var(--panel-height)]' : ''}`}
-          style={{
-            transition: isResizing ? 'none' : 'padding-bottom 0.2s ease'
-          }}
-        >
-          {user && (
-            <TextHighlighter 
-              articleId={article.id} 
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="container max-w-4xl mx-auto p-4 sm:p-6">
+          {/* Article Header */}
+          <div className="mb-6">
+            <h1 className="text-3xl sm:text-4xl font-bold mb-2">{article.title}</h1>
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground mb-4">
+              {article.author && <span>By {article.author}</span>}
+              {article.published_date && (
+                <span className="flex items-center">
+                  <span className="mx-2">•</span>
+                  {format(new Date(article.published_date), "MMM d, yyyy")}
+                </span>
+              )}
+              {article.estimated_read_time && (
+                <span className="flex items-center">
+                  <span className="mx-2">•</span>
+                  {article.estimated_read_time} min read
+                </span>
+              )}
+            </div>
+            
+            {/* Simplified Tag Selection */}
+            <TagSelector articleId={articleId} />
+          </div>
+
+          {/* Featured Image */}
+          {imageUrl && (
+            <div className="mb-8 relative rounded-lg overflow-hidden">
+              <div className="aspect-w-16 aspect-h-9">
+                <Image
+                  src={imageUrl}
+                  alt={article.title}
+                  fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  className="object-cover"
+                  priority
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Article Content */}
+          <div className="prose dark:prose-invert max-w-none mb-20">
+            <article
+              className="prose-lg max-w-none dark:prose-invert"
+              dangerouslySetInnerHTML={{ __html: article.content }}
+            />
+            <TextHighlighter
+              articleId={articleId}
               onHighlightCreated={handleHighlightCreated}
             />
-          )}
-          
-          <article 
-            className="prose prose-lg max-w-none dark:prose-invert prose-headings:font-bold prose-a:text-primary"
-            dangerouslySetInnerHTML={{ __html: article.content }}
-          />
-          
-          {/* AI Question Answerer */}
-          <div className="mt-16 mb-8">
-            <h2 className="mb-6 text-2xl font-bold">Ask AI About This Article</h2>
-            <ArticleQuestionAnswerer articleId={article.id} content={article.content} />
           </div>
         </div>
       </div>
+
+      {/* AI Chat Panel (Right Side) */}
+      {showAIPanel && (
+        <div 
+          data-ai-panel="true"
+          className="border-l bg-background flex flex-col h-screen"
+          style={{ 
+            position: 'fixed', 
+            right: 0, 
+            top: 0, 
+            bottom: 0, 
+            zIndex: 50,
+            width: `${aiPanelWidth}px`,
+            minWidth: '250px',
+            maxWidth: '800px'
+          }}
+        >
+          {/* Resize handle - improved visibility and interaction */}
+          <div 
+            className="absolute left-0 top-0 bottom-0 w-6 cursor-ew-resize hover:bg-blue-400 dark:hover:bg-blue-600 transition-colors flex items-center justify-center"
+            style={{ 
+              zIndex: 60, 
+              backgroundColor: 'rgba(200, 200, 200, 0.2)'
+            }}
+            onMouseDown={startResize}
+          >
+            {/* Visual indicator for resize handle */}
+            <div className="h-20 w-1 bg-gray-400 dark:bg-gray-600 rounded-full" />
+          </div>
+          
+          <div className="p-4 border-b flex justify-center items-center">
+            <h3 className="font-semibold text-lg">Reading Buddy</h3>
+            <Button variant="ghost" size="sm" className="absolute right-2" onClick={toggleAIPanel}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          <div className="flex-1 overflow-hidden">
+            <ArticleAIAssistant 
+              articleId={articleId}
+              content={article.content}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* AI Button - Fixed Position */}
+      {!showAIPanel && (
+        <Button
+          className="fixed right-6 top-24 rounded-full shadow-lg"
+          onClick={toggleAIPanel}
+          size="icon"
+          title="Open Reading Buddy"
+          style={{ zIndex: 40 }}
+        >
+          <Bot className="h-5 w-5" />
+        </Button>
+      )}
+
+      {/* TTS Player */}
+      {showTTSPlayer && article && (
+        <ArticleSpeechPlayer
+          articleId={articleId}
+          content={article.content}
+          title={article.title}
+          onClose={() => setShowTTSPlayer(false)}
+        />
+      )}
+
+      {/* Delete Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Article</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this article? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={deleteArticle}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
-} 
+}

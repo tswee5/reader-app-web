@@ -21,6 +21,7 @@ import { useSupabase } from "@/components/providers/supabase-provider";
 import { useToast } from "@/components/ui/use-toast";
 import { CreateTagDialog } from "@/components/articles/tags/create-tag-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 // Helper function to get color classes for tags
@@ -64,6 +65,7 @@ export function TagSelector({ articleId }: TagSelectorProps) {
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const { toast } = useToast();
 
   // Fetch all tags for the user
@@ -218,122 +220,111 @@ export function TagSelector({ articleId }: TagSelectorProps) {
   };
 
   return (
-    <div className="flex flex-col space-y-2">
-      <div className="flex space-x-2">
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="h-9 justify-start border-dashed text-sm flex-1"
-            >
-              <TagIcon className="mr-2 h-4 w-4" />
-              {selectedTags.length > 0 ? `${selectedTags.length} tags selected` : "Add tags"}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent 
-            className="w-[300px] p-0 z-[9999] shadow-lg border-2 bg-background" 
-            align="start"
-            sideOffset={5}
+    <div className="flex flex-wrap gap-2 mb-4">
+      {/* Display existing tags */}
+      {selectedTags.map(tag => (
+        <Badge 
+          key={tag.id} 
+          className={`${getTagColorClass(tag.color)} text-foreground`}
+        >
+          {tag.name}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-4 w-4 ml-1 p-0"
+            onClick={() => removeTagFromArticle(tag.id)}
           >
-            <Command className="border-none rounded-none">
-              <CommandInput placeholder="Search tags..." />
-              <CommandList>
-                <CommandEmpty>
-                  <div className="py-6 text-center text-sm">
-                    <p className="text-muted-foreground">No tags found.</p>
-                    <p className="mt-2">Create a new tag below.</p>
-                  </div>
-                </CommandEmpty>
-                <CommandGroup heading="Your Tags">
-                  <ScrollArea className="h-[200px]">
-                    {tags.map((tag) => {
-                      const isSelected = selectedTags.some(t => t.id === tag.id);
-                      
-                      return (
-                        <CommandItem
-                          key={tag.id}
-                          value={tag.name}
-                          onSelect={() => {
-                            if (isSelected) {
-                              removeTagFromArticle(tag.id);
-                            } else {
-                              addTagToArticle(tag);
-                            }
-                          }}
-                        >
-                          <div 
-                            className={cn(
-                              "mr-2 h-4 w-4 rounded-full",
-                              getTagColorClass(tag.color)
-                            )}
-                          />
-                          <span className="flex-1">{tag.name}</span>
-                          {isSelected && <Check className="h-4 w-4" />}
-                        </CommandItem>
-                      );
-                    })}
-                  </ScrollArea>
-                </CommandGroup>
-                
-                <CommandSeparator />
-                
-                <CommandGroup>
-                  <div className="p-2 bg-background">
-                    <CreateTagDialog 
-                      onTagCreated={handleTagCreated}
-                      triggerButton={
-                        <Button variant="outline" size="sm" className="w-full">
-                          <Plus className="mr-2 h-4 w-4" />
-                          Create Tag
-                        </Button>
-                      }
-                    />
-                  </div>
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
-        
-        <CreateTagDialog 
-          onTagCreated={handleTagCreated}
-          triggerButton={
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="h-9 border-dashed"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              <span className="sr-only md:not-sr-only md:inline">New Tag</span>
-            </Button>
-          }
-        />
-      </div>
-
-      {selectedTags.length > 0 && (
-        <div className="flex flex-wrap gap-2 pt-2">
-          {selectedTags.map((tag) => (
-            <div
-              key={tag.id}
-              className={cn(
-                "flex items-center gap-1 rounded-full px-3 py-1 text-xs",
-                getTagColorClass(tag.color)
-              )}
-            >
-              <span>{tag.name}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-auto w-auto p-0"
-                onClick={() => removeTagFromArticle(tag.id)}
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
-          ))}
-        </div>
-      )}
+            <X className="h-3 w-3" />
+          </Button>
+        </Badge>
+      ))}
+      
+      {/* Add Tag Button */}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 px-2 rounded-full text-xs"
+          >
+            <Plus className="h-3 w-3 mr-1" /> New Tag
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent 
+          className="w-[250px] p-0 z-[9999] shadow-lg border-2 bg-background" 
+          align="start"
+          sideOffset={5}
+        >
+          <Command className="border-none rounded-none">
+            <CommandInput placeholder="Search tags..." />
+            <CommandList>
+              <CommandEmpty>
+                <div className="py-4 text-center text-sm">
+                  <p className="text-muted-foreground">No tags found.</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={() => {
+                      setOpen(false);
+                      setShowCreateDialog(true);
+                    }}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Create new tag
+                  </Button>
+                </div>
+              </CommandEmpty>
+              <CommandGroup heading="Your Tags">
+                <ScrollArea className="h-[200px]">
+                  {tags.map((tag) => {
+                    const isSelected = selectedTags.some(t => t.id === tag.id);
+                    return (
+                      <CommandItem
+                        key={tag.id}
+                        value={tag.name}
+                        onSelect={() => {
+                          if (isSelected) {
+                            removeTagFromArticle(tag.id);
+                          } else {
+                            addTagToArticle(tag);
+                          }
+                          setOpen(false);
+                        }}
+                        className="flex items-center py-1.5"
+                      >
+                        <div className={`h-3 w-3 rounded-full ${getTagColorClass(tag.color)} mr-2`} />
+                        <span className="flex-1 truncate">{tag.name}</span>
+                        {isSelected && <Check className="h-4 w-4 ml-2" />}
+                      </CommandItem>
+                    );
+                  })}
+                </ScrollArea>
+              </CommandGroup>
+              <CommandSeparator />
+              <CommandGroup>
+                <CommandItem
+                  onSelect={() => {
+                    setOpen(false);
+                    setShowCreateDialog(true);
+                  }}
+                  className="py-1.5"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  <span>Create a new tag</span>
+                </CommandItem>
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+      
+      {/* Create Tag Dialog */}
+      <CreateTagDialog 
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        onTagCreated={handleTagCreated}
+      />
     </div>
   );
 } 

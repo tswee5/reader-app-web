@@ -2,6 +2,28 @@ import Link from "next/link";
 import Image from "next/image";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useSupabase } from "@/components/providers/supabase-provider";
+import { useToast } from "@/components/ui/use-toast";
+import { MoreVertical, Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 
 // Add the Tag type
 type Tag = {
@@ -25,6 +47,7 @@ interface ArticleCardProps {
     is_completed?: boolean | null;
     tags?: Tag[]; // Add optional tags array
   };
+  onDeleteSuccess?: () => void; // Add callback to refresh the library after deletion
 }
 
 // Helper function to get tag color classes
@@ -52,7 +75,13 @@ function getTagColorClass(color: string): string {
   }
 }
 
-export function ArticleCard({ article }: ArticleCardProps) {
+export function ArticleCard({ article, onDeleteSuccess }: ArticleCardProps) {
+  const router = useRouter();
+  const { supabase, user } = useSupabase();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  
   const createdAt = new Date(article.created_at);
   const timeAgo = formatDistanceToNow(createdAt, { addSuffix: true });
   
@@ -65,9 +94,114 @@ export function ArticleCard({ article }: ArticleCardProps) {
     ? `/api/proxy?url=${encodeURIComponent(article.lead_image_url)}`
     : null;
 
+  // Handle delete article
+  const handleDeleteArticle = async () => {
+    if (!user) return;
+    
+    setIsLoading(true);
+    
+    try {
+      // First, delete all associated highlights
+      const { error: highlightsError } = await supabase
+        .from("highlights")
+        .delete()
+        .eq("article_id", article.id)
+        .eq("user_id", user.id);
+        
+      if (highlightsError) {
+        console.error("Error deleting highlights:", highlightsError);
+        toast({
+          title: "Error",
+          description: "Failed to delete article highlights.",
+          variant: "destructive"
+        });
+        setIsLoading(false);
+        return;
+      }
+      
+      // Delete all associated notes
+      const { error: notesError } = await supabase
+        .from("notes")
+        .delete()
+        .eq("article_id", article.id)
+        .eq("user_id", user.id);
+        
+      if (notesError) {
+        console.error("Error deleting notes:", notesError);
+        toast({
+          title: "Error",
+          description: "Failed to delete article notes.",
+          variant: "destructive"
+        });
+        setIsLoading(false);
+        return;
+      }
+      
+      // Delete article tags
+      const { error: tagsError } = await supabase
+        .from("article_tags")
+        .delete()
+        .eq("article_id", article.id)
+        .eq("user_id", user.id);
+        
+      if (tagsError) {
+        console.error("Error deleting article tags:", tagsError);
+        // Continue with deletion even if tags fail
+      }
+      
+      // Finally delete the article itself
+      const { error: articleError } = await supabase
+        .from("articles")
+        .delete()
+        .eq("id", article.id)
+        .eq("user_id", user.id);
+        
+      if (articleError) {
+        console.error("Error deleting article:", articleError);
+        toast({
+          title: "Error",
+          description: "Failed to delete article.",
+          variant: "destructive"
+        });
+        setIsLoading(false);
+        return;
+      }
+      
+      toast({
+        title: "Article deleted",
+        description: "The article has been removed from your library.",
+      });
+      
+      // Call onDeleteSuccess to refresh the library
+      if (onDeleteSuccess) {
+        onDeleteSuccess();
+      }
+    } catch (err) {
+      console.error("Unexpected error deleting article:", err);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Prevents event propagation when clicking dropdown menu
+  const handleMenuClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  
+  // Handle navigation to article
+  const handleCardClick = () => {
+    router.push(`/articles/${article.id}`);
+  };
+
   return (
-    <Link href={`/articles/${article.id}`} prefetch={true}>
-      <div className="group flex h-full flex-col overflow-hidden rounded-lg border bg-card transition-all hover:shadow-md">
+    <div className="group flex h-full flex-col overflow-hidden rounded-lg border bg-card transition-all hover:shadow-md">
+      <div onClick={handleCardClick} className="cursor-pointer">
         {imageUrl && (
           <div className="relative h-48 w-full overflow-hidden">
             <Image
@@ -79,8 +213,37 @@ export function ArticleCard({ article }: ArticleCardProps) {
             />
           </div>
         )}
-        <div className="flex flex-1 flex-col p-4">
-          <h3 className="line-clamp-2 text-xl font-semibold">{article.title}</h3>
+      </div>
+      <div className="flex flex-1 flex-col p-4">
+        <div className="flex justify-between items-start">
+          <h3 onClick={handleCardClick} className="cursor-pointer line-clamp-2 text-xl font-semibold pr-6">{article.title}</h3>
+          <div onClick={handleMenuClick}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 opacity-50 group-hover:opacity-100"
+                  title="Article options"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                  <span className="sr-only">Options</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem 
+                  onClick={() => setShowDeleteDialog(true)}
+                  className="cursor-pointer text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  <span>Delete article</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+        
+        <div onClick={handleCardClick} className="cursor-pointer">
           {article.excerpt && (
             <p className="mt-2 line-clamp-2 text-muted-foreground">
               {article.excerpt}
@@ -148,6 +311,29 @@ export function ArticleCard({ article }: ArticleCardProps) {
           </div>
         </div>
       </div>
-    </Link>
+      
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Article</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete &quot;{article.title}&quot; from your library, including all highlights and notes.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteArticle}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isLoading}
+            >
+              {isLoading ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 } 

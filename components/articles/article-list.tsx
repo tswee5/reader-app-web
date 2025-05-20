@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ArticleCard } from "@/components/articles/article-card";
 
 // Define Tag type
@@ -22,15 +23,30 @@ interface ArticleListProps {
     tags?: Tag[]; // Add optional tags array
   }>;
   selectedTagId?: string; // Add an optional selected tag for filtering
+  onRefresh?: () => void; // Add a callback to refresh the articles list
 }
 
-export function ArticleList({ articles, selectedTagId }: ArticleListProps) {
-  // Filter articles by selected tag if one is provided
+export function ArticleList({ articles, selectedTagId, onRefresh }: ArticleListProps) {
+  // Local state to track deleted article IDs
+  const [deletedArticleIds, setDeletedArticleIds] = useState<string[]>([]);
+
+  // Filter articles by selected tag if one is provided and also exclude deleted articles
   const filteredArticles = selectedTagId
-    ? articles.filter(article => 
-        article.tags?.some(tag => tag.id === selectedTagId)
-      )
-    : articles;
+    ? articles
+        .filter(article => !deletedArticleIds.includes(article.id))
+        .filter(article => article.tags?.some(tag => tag.id === selectedTagId))
+    : articles.filter(article => !deletedArticleIds.includes(article.id));
+
+  // Handle successful deletion
+  const handleDeleteSuccess = (articleId: string) => {
+    // Add the deleted article ID to the state
+    setDeletedArticleIds(prev => [...prev, articleId]);
+    
+    // Call the parent refresh function if provided
+    if (onRefresh) {
+      onRefresh();
+    }
+  };
 
   if (filteredArticles.length === 0) {
     return (
@@ -49,7 +65,11 @@ export function ArticleList({ articles, selectedTagId }: ArticleListProps) {
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
       {filteredArticles.map((article) => (
-        <ArticleCard key={article.id} article={article} />
+        <ArticleCard 
+          key={article.id} 
+          article={article} 
+          onDeleteSuccess={() => handleDeleteSuccess(article.id)}
+        />
       ))}
     </div>
   );

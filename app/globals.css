@@ -93,3 +93,46 @@
   z-index: 10;
   position: relative;
 }
+
+/* TTS active word highlight */
+.tts-active-word {
+  background-color: rgba(59, 130, 246, 0.2);
+  color: rgb(37, 99, 235);
+  border-radius: 3px;
+  padding: 0 2px;
+  font-weight: 600;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  animation: ttsWordPulse 1s ease-in-out infinite alternate;
+  display: inline-block;
+  position: relative;
+  z-index: 5;
+}
+
+@keyframes ttsWordPulse {
+  from {
+    background-color: rgba(59, 130, 246, 0.2);
+  }
+  to {
+    background-color: rgba(59, 130, 246, 0.4);
+  }
+}
+
+/* Dark mode support for TTS highlighting */
+.dark .tts-active-word {
+  background-color: rgba(96, 165, 250, 0.3);
+  color: rgb(191, 219, 254);
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.15);
+}
+
+@keyframes ttsWordPulseDark {
+  from {
+    background-color: rgba(96, 165, 250, 0.3);
+  }
+  to {
+    background-color: rgba(96, 165, 250, 0.5);
+  }
+}
+
+.dark .tts-active-word {
+  animation: ttsWordPulseDark 1s ease-in-out infinite alternate;
+}

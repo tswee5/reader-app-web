@@ -224,7 +224,7 @@ export function ArticleSummarizer({ articleId, content }: ArticleSummarizerProps
   };
 
   return (
-    <Card className="shadow-sm">
+    <Card className="shadow-sm overflow-hidden">
       <CardHeader className="pb-2 pt-3 px-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center">
@@ -232,15 +232,12 @@ export function ArticleSummarizer({ articleId, content }: ArticleSummarizerProps
             Article Summary
           </CardTitle>
         </div>
-        <CardDescription className="text-xs">
-          Generate a concise summary of this article using Claude AI
-        </CardDescription>
       </CardHeader>
       <CardContent className="px-3 py-2">
         {!summary && !isLoading && (
           <div className="flex flex-col items-center justify-center py-2">
             <p className="text-xs text-muted-foreground mb-2 text-center">
-              Get a brief summary of the key points in this article
+              Get a brief summary of the key points
             </p>
             <Button onClick={() => generateSummary()} className="w-full h-8 text-sm">
               Generate Summary
@@ -249,56 +246,59 @@ export function ArticleSummarizer({ articleId, content }: ArticleSummarizerProps
         )}
 
         {isLoading && (
-          <div className="space-y-2">
+          <div className="space-y-2 py-2">
+            <Skeleton className="h-4 w-3/4" />
             <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-[90%]" />
-            <Skeleton className="h-4 w-[95%]" />
-            <Skeleton className="h-4 w-[85%]" />
-            <Skeleton className="h-4 w-[90%]" />
+            <Skeleton className="h-4 w-5/6" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-2/3" />
+            <div className="flex items-center justify-center mt-3">
+              <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-primary"></div>
+            </div>
           </div>
         )}
 
-        {error && (
-          <div className="py-2">
-            <p className="text-red-500 text-sm font-medium mb-1">{error}</p>
+        {error && !isLoading && (
+          <div className="bg-destructive/10 text-destructive rounded-md p-3 text-sm">
+            <p className="font-medium">{error}</p>
             {errorDetails && (
-              <p className="text-amber-600 text-xs mb-2">{errorDetails}</p>
+              <p className="mt-1 text-xs opacity-80">{errorDetails}</p>
             )}
-            <div className="flex gap-2 mt-2">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => generateSummary()}
-              >
-                <RotateCw className="h-3 w-3 mr-1" /> Try Again
-              </Button>
-              
-              {error.includes("Authentication") && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => router.push('/login')}
-                >
-                  Log In Again
-                </Button>
-              )}
-            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => {
+                setError(null);
+                setErrorDetails(null);
+                generateSummary();
+              }}
+              className="w-full mt-2 h-8 text-xs"
+            >
+              <RotateCw className="mr-1 h-3 w-3" /> Try Again
+            </Button>
           </div>
         )}
 
-        {summary && !isLoading && (
+        {summary && !isLoading && !error && (
           <div className="prose prose-sm max-w-none dark:prose-invert">
-            <div className="whitespace-pre-wrap text-sm">{summary}</div>
-            <div className="mt-4 flex justify-end">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => generateSummary()}
-                className="text-xs"
-              >
-                <RotateCw className="h-3 w-3 mr-1" /> Regenerate
-              </Button>
-            </div>
+            <ReactMarkdown
+              className="text-sm leading-relaxed"
+            >
+              {summary}
+            </ReactMarkdown>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => {
+                setSummary(null);
+                setError(null);
+                setErrorDetails(null);
+                generateSummary();
+              }}
+              className="w-full mt-2 text-xs h-7"
+            >
+              <RotateCw className="mr-1 h-3 w-3" /> Regenerate
+            </Button>
           </div>
         )}
       </CardContent>

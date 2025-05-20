@@ -39,14 +39,28 @@ type TagFormValues = z.infer<typeof tagSchema>;
 interface CreateTagDialogProps {
   onTagCreated?: (tagId: string) => void;
   triggerButton?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function CreateTagDialog({ onTagCreated, triggerButton }: CreateTagDialogProps) {
-  const [open, setOpen] = useState(false);
+export function CreateTagDialog({ 
+  onTagCreated, 
+  triggerButton, 
+  open: externalOpen, 
+  onOpenChange: externalOnOpenChange 
+}: CreateTagDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedColor, setSelectedColor] = useState<string>("gray");
   const { supabase, user } = useSupabase();
   const { toast } = useToast();
+
+  // Determine if we're using external or internal state
+  const isControlled = externalOpen !== undefined && externalOnOpenChange !== undefined;
+  const open = isControlled ? externalOpen : internalOpen;
+  const setOpen = isControlled 
+    ? externalOnOpenChange 
+    : setInternalOpen;
 
   const form = useForm<TagFormValues>({
     resolver: zodResolver(tagSchema),
@@ -116,14 +130,11 @@ export function CreateTagDialog({ onTagCreated, triggerButton }: CreateTagDialog
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {triggerButton || (
-          <Button size="sm" variant="outline">
-            <Plus className="mr-2 h-4 w-4" />
-            New Tag
-          </Button>
-        )}
-      </DialogTrigger>
+      {triggerButton && (
+        <DialogTrigger asChild>
+          {triggerButton}
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Create Tag</DialogTitle>
