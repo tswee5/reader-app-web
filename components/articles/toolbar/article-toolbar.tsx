@@ -8,9 +8,11 @@ import {
   Highlighter as HighlighterIcon,
   ExternalLink,
   Play,
-  Tag,
   Settings,
-  Eye
+  MessageSquareText,
+  Bot,
+  Type,
+  AlertTriangle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,19 +21,29 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { TextFormatSettings } from "@/components/articles/text-formatting/text-format-settings";
 
 interface ArticleToolbarProps {
   articleId: string;
   articleUrl?: string | null;
   onDeleteClick: () => void;
   onPlayClick?: () => void;
+  onNotesClick?: () => void;
+  onAIChatClick?: (selectedText?: string) => void;
 }
 
 export function ArticleToolbar({ 
   articleId, 
   articleUrl,
   onDeleteClick,
-  onPlayClick
+  onPlayClick,
+  onNotesClick,
+  onAIChatClick
 }: ArticleToolbarProps) {
   const router = useRouter();
   const [isHovered, setIsHovered] = useState(false);
@@ -149,12 +161,13 @@ export function ArticleToolbar({
                 variant="ghost" 
                 size="icon" 
                 className="rounded-full hover:bg-gray-100 dark:hover:bg-gray-800" 
+                onClick={onNotesClick}
               >
-                <Tag className="h-5 w-5" />
+                <MessageSquareText className="h-5 w-5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right" className="font-medium">
-              <p>Manage Tags</p>
+              <p>View Notes</p>
             </TooltipContent>
           </Tooltip>
           
@@ -164,62 +177,77 @@ export function ArticleToolbar({
                 variant="ghost" 
                 size="icon" 
                 className="rounded-full hover:bg-gray-100 dark:hover:bg-gray-800" 
+                onClick={onAIChatClick}
               >
-                <Eye className="h-5 w-5" />
+                <Bot className="h-5 w-5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right" className="font-medium">
-              <p>View Options</p>
+              <p>AI Reading Buddy</p>
             </TooltipContent>
           </Tooltip>
           
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="rounded-full hover:bg-gray-100 dark:hover:bg-gray-800" 
-              >
-                <HighlighterIcon className="h-5 w-5" />
-              </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="rounded-full hover:bg-gray-100 dark:hover:bg-gray-800" 
+                  >
+                    <Type className="h-5 w-5" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent side="right" className="w-auto p-0" align="start" sideOffset={40}>
+                  <TextFormatSettings />
+                </PopoverContent>
+              </Popover>
             </TooltipTrigger>
             <TooltipContent side="right" className="font-medium">
-              <p>Highlight Text</p>
+              <p>Text Formatting</p>
             </TooltipContent>
           </Tooltip>
           
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="rounded-full hover:bg-gray-100 dark:hover:bg-gray-800" 
-              >
-                <Settings className="h-5 w-5" />
-              </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="rounded-full hover:bg-gray-100 dark:hover:bg-gray-800" 
+                  >
+                    <Settings className="h-5 w-5" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent side="right" className="p-4 w-64" align="start" sideOffset={40}>
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-lg">Article Settings</h3>
+                    
+                    <div className="border-t pt-2">
+                      <h4 className="font-medium text-sm mb-1">Danger Zone</h4>
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        className="w-full flex items-center justify-center gap-2"
+                        onClick={onDeleteClick}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span>Delete Article</span>
+                      </Button>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        This will permanently remove the article from your library.
+                      </p>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </TooltipTrigger>
             <TooltipContent side="right" className="font-medium">
               <p>Settings</p>
             </TooltipContent>
           </Tooltip>
-
-          <div className="mt-4 pt-4 border-t border-muted w-full flex justify-center">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="rounded-full hover:bg-red-100 dark:hover:bg-red-900" 
-                  onClick={onDeleteClick}
-                >
-                  <Trash2 className="h-5 w-5 text-red-500" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="font-medium">
-                <p>Delete Article</p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
         </div>
       </div>
     </TooltipProvider>

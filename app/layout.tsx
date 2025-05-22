@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { inter, literata, merriweather, sourceSerif } from "./fonts";
 import "./globals.css";
+import "./styles.css";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { SupabaseProvider } from "@/components/providers/supabase-provider";
 import { Toaster } from "@/components/ui/toaster";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Reader App",
@@ -19,7 +18,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html 
+      lang="en" 
+      suppressHydrationWarning
+      className={`${inter.variable} ${literata.variable} ${merriweather.variable} ${sourceSerif.variable}`}
+    >
       <body className={inter.className}>
         <SupabaseProvider>
           <div className="flex min-h-screen flex-col">

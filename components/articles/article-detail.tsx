@@ -7,8 +7,9 @@ import { format } from "date-fns";
 import { useSupabase } from "@/components/providers/supabase-provider";
 import { TextHighlighter } from "@/components/articles/highlighting/text-highlighter";
 import { TagSelector } from "@/components/articles/tags/tag-selector";
-import { ArticleAIAssistant } from "@/components/articles/ai/article-ai-assistant";
+import { ArticleAIAssistant, ArticleAIAssistantRef } from "@/components/articles/ai/article-ai-assistant";
 import { ArticleSpeechPlayer } from "@/components/articles/tts/article-speech-player";
+import { NotesPanel } from "@/components/articles/notes/notes-panel";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { 
@@ -132,6 +133,15 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
   // Add state for TTS player visibility
   const [showTTSPlayer, setShowTTSPlayer] = useState(false);
   
+  // Add state for notes panel
+  const [notesPanelWidth, setNotesPanelWidth] = useState(400); // Increased from 320 to 400 pixels
+  const isResizingNotesRef = useRef(false);
+  const startXNotesRef = useRef(0);
+  const startWidthNotesRef = useRef(0);
+  
+  // Add ref for AI assistant
+  const aiAssistantRef = useRef<ArticleAIAssistantRef>(null);
+  
   // Load saved sidebar width from localStorage on component mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -170,6 +180,19 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
         const width = parseInt(savedWidth, 10);
         if (!isNaN(width) && width >= 250 && width <= 800) {
           setAiPanelWidth(width);
+        }
+      }
+    }
+  }, []);
+
+  // Load saved notes panel width from localStorage on component mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedWidth = localStorage.getItem('notesPanelWidth');
+      if (savedWidth) {
+        const width = parseInt(savedWidth, 10);
+        if (!isNaN(width) && width >= 250 && width <= 800) {
+          setNotesPanelWidth(width);
         }
       }
     }
@@ -418,14 +441,41 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
     }
   };
 
-  // Toggle notes management panel
+  // Toggle notes panel - close AI panel if open
   const toggleNotesPanel = () => {
-    setShowNotesPanel(prev => !prev);
-    // Load the latest notes when opening the panel
+    // If notes panel is closed and about to be opened
     if (!showNotesPanel) {
+      // Close AI panel if it's open
+      if (showAIPanel) {
+        setShowAIPanel(false);
+        toast({
+          title: "Notes panel opened",
+          duration: 1500,
+        });
+      }
+      // Load the latest notes and highlights when opening
       loadNotes();
       loadHighlights();
     }
+    // Toggle notes panel state
+    setShowNotesPanel(!showNotesPanel);
+  };
+
+  // Toggle AI panel - close notes panel if open
+  const toggleAIPanel = () => {
+    // If AI panel is closed and about to be opened
+    if (!showAIPanel) {
+      // Close notes panel if it's open
+      if (showNotesPanel) {
+        setShowNotesPanel(false);
+        toast({
+          title: "AI Reading Buddy opened",
+          duration: 1500,
+        });
+      }
+    }
+    // Toggle AI panel state
+    setShowAIPanel(!showAIPanel);
   };
 
   // Format date for display
@@ -608,6 +658,7 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
 
   // Add the handleHighlightCreated function which is referenced in the TextHighlighter component
   const handleHighlightCreated = useCallback(() => {
+    // Make sure we have the latest highlights and notes
     loadHighlights();
     loadNotes();
   }, [loadHighlights, loadNotes]);
@@ -882,11 +933,6 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
     };
   }, [handleResize, stopResize]);
 
-  // Toggle AI panel
-  const toggleAIPanel = () => {
-    setShowAIPanel(!showAIPanel);
-  };
-
   // Toggle TTS player
   const toggleTTSPlayer = () => {
     setShowTTSPlayer(prev => !prev);
@@ -1111,6 +1157,225 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
     }
   };
 
+  // Handle Notes panel resizing
+  const startNotesResize = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    isResizingNotesRef.current = true;
+    startXNotesRef.current = e.clientX;
+    startWidthNotesRef.current = notesPanelWidth;
+    
+    // Only change the cursor on the body when actively resizing
+    document.body.style.cursor = 'ew-resize';
+    document.body.style.userSelect = 'none';
+    
+    document.addEventListener('mousemove', handleNotesResize);
+    document.addEventListener('mouseup', stopNotesResize);
+  }, [notesPanelWidth]);
+
+  const handleNotesResize = useCallback((e: MouseEvent) => {
+    if (!isResizingNotesRef.current) return;
+    
+    // Prevent default behavior and stop propagation
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // For a left-edge resize handle, the logic is reverse of right-edge handles:
+    // - When dragging left (e.clientX < startXNotesRef.current), the panel should grow wider
+    // - When dragging right (e.clientX > startXNotesRef.current), the panel should get narrower
+    
+    // Calculate the movement distance
+    const deltaX = e.clientX - startXNotesRef.current;
+    
+    // Apply the inverse relationship: 
+    // - Positive deltaX (moving right) = decrease width
+    // - Negative deltaX (moving left) = increase width
+    const newWidth = startWidthNotesRef.current - deltaX;
+    
+    // Apply constraints - using wider min/max range
+    const constrainedWidth = Math.max(250, Math.min(800, newWidth));
+    
+    // Directly manipulate DOM for smoother resizing
+    const notesPanel = document.querySelector('[data-notes-panel="true"]');
+    if (notesPanel) {
+      (notesPanel as HTMLElement).style.width = `${constrainedWidth}px`;
+    }
+    
+    // Update state (less frequently than DOM updates for performance)
+    setNotesPanelWidth(constrainedWidth);
+  }, []);
+
+  const stopNotesResize = useCallback((e?: MouseEvent) => {
+    if (!isResizingNotesRef.current) return;
+    
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    isResizingNotesRef.current = false;
+    
+    // Reset cursor and user-select when done resizing
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    
+    document.removeEventListener('mousemove', handleNotesResize);
+    document.removeEventListener('mouseup', stopNotesResize);
+    
+    // Get final width directly from DOM to ensure accuracy
+    const notesPanel = document.querySelector('[data-notes-panel="true"]');
+    if (notesPanel) {
+      const finalWidth = notesPanel.getBoundingClientRect().width;
+      setNotesPanelWidth(Math.round(finalWidth));
+      
+      // Save the width preference to localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('notesPanelWidth', Math.round(finalWidth).toString());
+      }
+    }
+  }, [handleNotesResize]);
+
+  // Clean up event listeners for notes panel resize
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('mousemove', handleNotesResize);
+      document.removeEventListener('mouseup', stopNotesResize);
+    };
+  }, [handleNotesResize, stopNotesResize]);
+
+  // Add updateNote function
+  const updateNote = async (noteId: string, content: string) => {
+    if (!user) return false;
+    
+    try {
+      // Update the note in the database
+      const { error } = await supabase
+        .from("notes")
+        .update({ content })
+        .eq("id", noteId)
+        .eq("user_id", user.id);
+        
+      if (error) {
+        console.error("Error updating note:", error);
+        toast({
+          title: "Error",
+          description: "Failed to update note.",
+          variant: "destructive"
+        });
+        return false;
+      }
+      
+      // Update the note in local state
+      setNotes(prevNotes => 
+        prevNotes.map(note => 
+          note.id === noteId 
+            ? { ...note, content, updatedAt: new Date() } 
+            : note
+        )
+      );
+      
+      toast({
+        title: "Note updated",
+        description: "Your note has been saved.",
+      });
+      
+      return true;
+    } catch (err) {
+      console.error("Error updating note:", err);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive"
+      });
+      return false;
+    }
+  };
+
+  // Update the handleAIWithSelectedText function
+  const handleAIWithSelectedText = (selectedText: string) => {
+    console.log("handleAIWithSelectedText called with:", selectedText);
+    console.log("Current panel states - AI:", showAIPanel, "Notes:", showNotesPanel);
+    
+    // Only proceed if selected text is provided
+    if (!selectedText) {
+      console.log("Early return - No selected text");
+      return;
+    }
+    
+    // Function to process after panels are managed
+    const processSelectedText = () => {
+      console.log("Processing selected text in AI panel");
+      if (aiAssistantRef.current) {
+        // Create a new conversation with the selected text
+        aiAssistantRef.current.createNewConversationWithText(`About this text: "${selectedText}"`);
+      } else {
+        console.error("AI Assistant ref not available when trying to process selected text");
+        
+        // Still show the panel even if ref is not available yet
+        // It will initialize when rendered
+        toast({
+          title: "Opening AI panel",
+          description: "Please try submitting your question again if it's not automatically filled in."
+        });
+      }
+    };
+    
+    // First close Notes panel if it's open
+    if (showNotesPanel) {
+      console.log("Closing Notes panel");
+      setShowNotesPanel(false);
+      // Short delay to allow Notes panel to close properly
+      setTimeout(() => {
+        // Then open AI panel if not already open
+        if (!showAIPanel) {
+          console.log("Opening AI panel");
+          setShowAIPanel(true);
+          // Store selected text in a session variable for access on panel mount
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('selectedTextForAI', selectedText);
+          }
+          // Delay to ensure AI panel is initialized
+          setTimeout(processSelectedText, 500);
+        } else {
+          console.log("AI panel already open, processing text immediately");
+          // AI panel is already open, process immediately
+          processSelectedText();
+        }
+      }, 100);
+    } else {
+      // Notes panel not open, just handle AI panel
+      if (!showAIPanel) {
+        console.log("Notes panel not open, opening AI panel");
+        setShowAIPanel(true);
+        // Store selected text in a session variable for access on panel mount
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('selectedTextForAI', selectedText);
+        }
+        // Delay to ensure AI panel is initialized
+        setTimeout(processSelectedText, 500);
+      } else {
+        console.log("Both panels in correct state, processing text immediately");
+        // AI panel is already open, process immediately
+        processSelectedText();
+      }
+    }
+  };
+
+  // Add useEffect to log when aiAssistantRef is set
+  useEffect(() => {
+    console.log("AI Assistant ref check:", aiAssistantRef.current ? "Available" : "Not available");
+  }, [aiAssistantRef.current]);
+  
+  // Ensure AI Assistant component is always rendered but hidden when not in use
+  useEffect(() => {
+    if (showAIPanel) {
+      console.log("AI Panel is now visible");
+    } else {
+      console.log("AI Panel is now hidden");
+    }
+  }, [showAIPanel]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-12">
@@ -1152,6 +1417,8 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
         articleUrl={article?.url} 
         onDeleteClick={() => setShowDeleteDialog(true)}
         onPlayClick={toggleTTSPlayer}
+        onNotesClick={toggleNotesPanel}
+        onAIChatClick={() => toggleAIPanel()}
       />
 
       {/* Main Content */}
@@ -1200,11 +1467,14 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
           <div className="prose dark:prose-invert max-w-none mb-20">
             <article
               className="prose-lg max-w-none dark:prose-invert"
+              data-article-content="true"
               dangerouslySetInnerHTML={{ __html: article.content }}
             />
             <TextHighlighter
               articleId={articleId}
               onHighlightCreated={handleHighlightCreated}
+              onNotesClick={toggleNotesPanel}
+              onAIChatClick={handleAIWithSelectedText}
             />
           </div>
         </div>
@@ -1248,6 +1518,7 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
           
           <div className="flex-1 overflow-hidden">
             <ArticleAIAssistant 
+              ref={aiAssistantRef}
               articleId={articleId}
               content={article.content}
             />
@@ -1255,17 +1526,49 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
         </div>
       )}
 
-      {/* AI Button - Fixed Position */}
-      {!showAIPanel && (
-        <Button
-          className="fixed right-6 top-24 rounded-full shadow-lg"
-          onClick={toggleAIPanel}
-          size="icon"
-          title="Open Reading Buddy"
-          style={{ zIndex: 40 }}
+      {/* Notes Panel (Right Side) */}
+      {showNotesPanel && (
+        <div 
+          data-notes-panel="true"
+          className="border-l bg-background flex flex-col h-screen"
+          style={{ 
+            position: 'fixed', 
+            right: 0, 
+            top: 0, 
+            bottom: 0, 
+            zIndex: 50,
+            width: `${notesPanelWidth}px`,
+            minWidth: '300px', // Increased from 250px
+            maxWidth: '800px'
+          }}
         >
-          <Bot className="h-5 w-5" />
-        </Button>
+          {/* Resize handle for notes panel */}
+          <div 
+            className="absolute left-0 top-0 bottom-0 w-6 cursor-ew-resize hover:bg-blue-400 dark:hover:bg-blue-600 transition-colors flex items-center justify-center"
+            style={{ 
+              zIndex: 60, 
+              backgroundColor: 'rgba(200, 200, 200, 0.2)'
+            }}
+            onMouseDown={startNotesResize}
+          >
+            {/* Visual indicator for resize handle */}
+            <div className="h-20 w-1 bg-gray-400 dark:bg-gray-600 rounded-full" />
+          </div>
+          
+          <NotesPanel
+            notes={notes}
+            highlights={highlights}
+            onClose={toggleNotesPanel}
+            onDeleteNote={deleteNote}
+            onDeleteHighlight={deleteHighlight}
+            onHighlightClick={handleHighlightSelect}
+            onUpdateNote={updateNote}
+            activeHighlightId={activeHighlightId}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            onRefreshNotes={loadNotes}
+          />
+        </div>
       )}
 
       {/* TTS Player */}

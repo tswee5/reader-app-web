@@ -4,34 +4,36 @@ import { useEffect, useRef, useState } from "react";
 import { useSupabase } from "@/components/providers/supabase-provider";
 import { HighlightColorPicker } from "@/components/articles/highlighting/highlight-color-picker";
 import { Button } from "@/components/ui/button";
-import { InlineNoteEditor } from "@/components/articles/notes/inline-note-editor";
-import { Edit3, MessageSquare } from "lucide-react";
+import { Bot, Edit3, MessageSquare, Palette } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface TextHighlighterProps {
   articleId: string;
   onHighlightCreated?: () => void;
+  onNotesClick?: () => void;
+  onAIChatClick?: (selectedText: string) => void;
 }
 
 export function TextHighlighter({ 
   articleId, 
-  onHighlightCreated
+  onHighlightCreated,
+  onNotesClick,
+  onAIChatClick
 }: TextHighlighterProps) {
   const { supabase, user } = useSupabase();
   const [selection, setSelection] = useState<Selection | null>(null);
   const [highlightColor, setHighlightColor] = useState<string>("yellow");
   const [popoverPosition, setPopoverPosition] = useState({ x: 0, y: 0 });
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   
-  // New state for inline note editor
-  const [isNoteEditorOpen, setIsNoteEditorOpen] = useState(false);
-  const [activeHighlight, setActiveHighlight] = useState<{
-    id: string;
-    text: string;
-  } | null>(null);
-
   // Handle text selection
   useEffect(() => {
     const handleSelectionChange = () => {
@@ -298,49 +300,44 @@ export function TextHighlighter({
     return textNodes;
   };
 
-  // Handle clicking the "Take a note" button
-  const handleTakeNote = async () => {
-    if (!selection || !user) return;
+  // Handle clicking the "Ask AI" button
+  const handleAskAI = () => {
+    if (!selection || !onAIChatClick) return;
+    
+    // Get the selected text
+    const selectedText = selection.toString();
+    console.log("Ask AI clicked with text:", selectedText);
     
     // Close the selection popover
     setIsPopoverOpen(false);
     
-    // Store a reference to the current selection range
-    const selectionRange = selection.getRangeAt(0).cloneRange();
-    const selectedText = selectionRange.toString();
+    // Small delay to allow the UI to update before opening the AI panel
+    setTimeout(() => {
+      // Call the onAIChatClick handler with the selected text
+      onAIChatClick(selectedText);
+    }, 50);
+  };
+
+  // Handle clicking the "Take a note" button
+  const handleTakeNote = async () => {
+    if (!selection || !user || !onNotesClick) return;
+    
+    // Close the selection popover
+    setIsPopoverOpen(false);
     
     try {
       // Create a highlight first with our stored range
       const highlight = await createHighlight();
       
       if (highlight) {
-        // Set the active highlight and open the note editor
-        setActiveHighlight({
-          id: highlight.id,
-          text: highlight.content,
-        });
+        // Notify the parent that a highlight was created
+        if (onHighlightCreated) {
+          onHighlightCreated();
+        }
         
-        // Open the inline note editor
-        setIsNoteEditorOpen(true);
-        
-        // Apply highlight again after a short delay to ensure it's visible
-        // This is a redundancy measure to handle cases where DOM updates remove the highlight
-        setTimeout(() => {
-          const articleElement = document.querySelector('article');
-          if (!articleElement) return;
-          
-          // Check if highlight exists in DOM
-          const existingHighlight = articleElement.querySelector(`[data-highlight-id="${highlight.id}"]`);
-          if (!existingHighlight) {
-            // If not found, apply the highlight again using position-based method
-            applyHighlight(
-              highlight.text_position_start,
-              highlight.text_position_end, 
-              highlight.color, 
-              highlight.id
-            );
-          }
-        }, 500);
+        // Open the notes panel - the NotesPanel will detect the new highlight
+        // and show the note creation interface
+        onNotesClick();
       }
     } catch (error) {
       console.error("Error in take note flow:", error);
@@ -349,60 +346,6 @@ export function TextHighlighter({
         description: "Failed to create highlight for note",
         variant: "destructive",
       });
-    }
-  };
-
-  // Handle note saved callback
-  const handleNoteSaved = () => {
-    // Get the current active highlight ID before clearing it
-    const currentHighlightId = activeHighlight?.id;
-    
-    // Clear active highlight
-    setActiveHighlight(null);
-    setIsNoteEditorOpen(false);
-    
-    // Ensure the highlight remains visible after the note is saved
-    if (currentHighlightId) {
-      setTimeout(() => {
-        const articleElement = document.querySelector('article');
-        if (!articleElement) return;
-        
-        // Check if highlight exists in DOM
-        const existingHighlight = articleElement.querySelector(`[data-highlight-id="${currentHighlightId}"]`);
-        if (!existingHighlight) {
-          // If the highlight was somehow removed, refresh highlights from the server
-          if (onHighlightCreated) {
-            onHighlightCreated();
-          }
-        }
-      }, 100);
-    }
-  };
-
-  // Close the note editor
-  const closeNoteEditor = () => {
-    // Get the current active highlight ID before clearing it
-    const currentHighlightId = activeHighlight?.id;
-    
-    // Clear state
-    setIsNoteEditorOpen(false);
-    setActiveHighlight(null);
-    
-    // Ensure highlight remains visible
-    if (currentHighlightId) {
-      setTimeout(() => {
-        const articleElement = document.querySelector('article');
-        if (!articleElement) return;
-        
-        // Check if highlight exists in DOM
-        const existingHighlight = articleElement.querySelector(`[data-highlight-id="${currentHighlightId}"]`);
-        if (!existingHighlight) {
-          // If the highlight was somehow removed, refresh highlights from the server
-          if (onHighlightCreated) {
-            onHighlightCreated();
-          }
-        }
-      }, 100);
     }
   };
 
@@ -419,10 +362,27 @@ export function TextHighlighter({
           }}
         >
           <div className="flex items-center gap-2 rounded-md border bg-background p-2 shadow-md">
-            <HighlightColorPicker 
-              selectedColor={highlightColor} 
-              onColorSelect={setHighlightColor} 
-            />
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleAskAI}
+              title="Ask AI about this text"
+              className="flex items-center gap-1"
+            >
+              <Bot className="h-4 w-4" />
+              <span className="hidden sm:inline">Ask AI</span>
+            </Button>
+            
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleTakeNote}
+              title="Add note to highlight"
+              className="flex items-center gap-1"
+            >
+              <MessageSquare className="h-4 w-4" />
+              <span className="hidden sm:inline">Take Note</span>
+            </Button>
             
             <Button
               size="sm"
@@ -435,30 +395,40 @@ export function TextHighlighter({
               <span className="hidden sm:inline">Highlight</span>
             </Button>
             
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={handleTakeNote}
-              title="Add note to highlight"
-              className="flex items-center gap-1 bg-black text-white hover:bg-gray-800"
-            >
-              <MessageSquare className="h-4 w-4" />
-              <span className="hidden sm:inline">Take a note</span>
-            </Button>
+            <Popover open={showColorPicker} onOpenChange={setShowColorPicker}>
+              <PopoverTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowColorPicker(!showColorPicker)}
+                  title="Choose highlight color"
+                  className="flex items-center gap-1"
+                >
+                  <Palette className="h-4 w-4" />
+                  <div 
+                    className="h-3 w-3 rounded-full ml-1 hidden sm:block"
+                    style={{ 
+                      backgroundColor: highlightColor === "yellow" ? "#fef08a" : 
+                                      highlightColor === "green" ? "#bbf7d0" :
+                                      highlightColor === "blue" ? "#bfdbfe" :
+                                      highlightColor === "purple" ? "#e9d5ff" :
+                                      highlightColor === "pink" ? "#fbcfe8" : undefined
+                    }}
+                  />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-2" side="top">
+                <HighlightColorPicker 
+                  selectedColor={highlightColor} 
+                  onColorSelect={(color) => {
+                    setHighlightColor(color);
+                    // We don't close the color picker on color select to allow multiple selections
+                  }} 
+                />
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
-      )}
-      
-      {/* Inline Note Editor */}
-      {isNoteEditorOpen && activeHighlight && (
-        <InlineNoteEditor
-          articleId={articleId}
-          highlightId={activeHighlight.id}
-          highlightedText={activeHighlight.text || ""}
-          position={popoverPosition}
-          onClose={closeNoteEditor}
-          onSaved={handleNoteSaved}
-        />
       )}
     </>
   );
