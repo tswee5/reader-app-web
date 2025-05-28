@@ -10,6 +10,8 @@ import { TagSelector } from "@/components/articles/tags/tag-selector";
 import { ArticleAIAssistant, ArticleAIAssistantRef } from "@/components/articles/ai/article-ai-assistant";
 import { ArticleSpeechPlayer } from "@/components/articles/tts/article-speech-player";
 import { NotesPanel } from "@/components/articles/notes/notes-panel";
+import { SummaryManager } from "@/components/articles/summary/summary-manager";
+import type { Summary } from "@/components/articles/summary/summary-manager";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { 
@@ -37,6 +39,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ArticleToolbar } from "@/components/articles/toolbar/article-toolbar";
+import { usePanelContext } from "@/components/providers/panel-provider";
 
 type Article = {
   id: string;
@@ -83,6 +86,17 @@ interface ArticleDetailProps {
 
 export function ArticleDetail({ articleId }: ArticleDetailProps) {
   const { supabase, user } = useSupabase();
+  const { 
+    showNotesPanel, 
+    showAIPanel, 
+    notesPanelWidth, 
+    aiPanelWidth,
+    setShowNotesPanel,
+    setShowAIPanel,
+    setNotesPanelWidth,
+    setAiPanelWidth
+  } = usePanelContext();
+  
   const [article, setArticle] = useState<Article | null>(null);
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -92,10 +106,10 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
   
   // Add state for notes functionality
   const [notes, setNotes] = useState<Note[]>([]);
-  const [showNotesPanel, setShowNotesPanel] = useState(false);
+  const [summaries, setSummaries] = useState<Summary[]>([]);
   const [showNotes, setShowNotes] = useState(false);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<string>("highlights");
+  const [activeTab, setActiveTab] = useState<string>("notes"); // Default to notes tab
   
   // Add state for resizable sidebar
   const [sidebarWidth, setSidebarWidth] = useState(320); // Default width in pixels 
@@ -110,8 +124,7 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
   // Add state for active highlight
   const [activeHighlightId, setActiveHighlightId] = useState<string | null>(null);
   
-  // Add state for AI panel
-  const [showAIPanel, setShowAIPanel] = useState(false);
+  // Add state for AI panel tab
   const [aiActiveTab, setAIActiveTab] = useState<string>("chat");
   
   // Add state for mobile panel height
@@ -125,7 +138,6 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
   // Add state for AI panel resizing
-  const [aiPanelWidth, setAiPanelWidth] = useState(400); // Increased default width for better usability
   const isResizingRef = useRef(false);
   const startXRef = useRef(0);
   const startWidthRef = useRef(0);
@@ -133,14 +145,31 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
   // Add state for TTS player visibility
   const [showTTSPlayer, setShowTTSPlayer] = useState(false);
   
-  // Add state for notes panel
-  const [notesPanelWidth, setNotesPanelWidth] = useState(400); // Increased from 320 to 400 pixels
+  // Add state for notes panel resizing
   const isResizingNotesRef = useRef(false);
   const startXNotesRef = useRef(0);
   const startWidthNotesRef = useRef(0);
   
   // Add ref for AI assistant
   const aiAssistantRef = useRef<ArticleAIAssistantRef>(null);
+  
+  // Add state for pending note creation
+  const [pendingNoteData, setPendingNoteData] = useState<{
+    highlightId: string;
+    selectedText: string;
+  } | null>(null);
+  
+  // Add state for pending summary creation
+  const [pendingSummaryData, setPendingSummaryData] = useState<{
+    dotIndex: number;
+    articleId?: string;
+    totalDots?: number;
+  } | null>(null);
+  
+  // Initialize panel states on mount
+  useEffect(() => {
+    setShowNotesPanel(true); // Always show notes panel by default for articles
+  }, [setShowNotesPanel]);
   
   // Load saved sidebar width from localStorage on component mount
   useEffect(() => {
@@ -183,7 +212,7 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
         }
       }
     }
-  }, []);
+  }, [setAiPanelWidth]);
 
   // Load saved notes panel width from localStorage on component mount
   useEffect(() => {
@@ -196,7 +225,7 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
         }
       }
     }
-  }, []);
+  }, [setNotesPanelWidth]);
 
   // Fetch the article from the admin endpoint as a fallback
   const fetchArticleWithAdmin = async (id: string) => {
@@ -441,24 +470,148 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
     }
   };
 
-  // Toggle notes panel - close AI panel if open
-  const toggleNotesPanel = () => {
-    // If notes panel is closed and about to be opened
-    if (!showNotesPanel) {
-      // Close AI panel if it's open
-      if (showAIPanel) {
-        setShowAIPanel(false);
-        toast({
-          title: "Notes panel opened",
-          duration: 1500,
-        });
+  // Load summaries for the current article
+  const loadSummaries = useCallback(async () => {
+    if (!user || !articleId) return;
+
+    try {
+      const { data, error } = await (supabase as any)
+        .from("summaries")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("article_id", articleId)
+        .order("dot_index", { ascending: true });
+
+      if (error) {
+        console.error("Error loading summaries:", error);
+        return;
       }
-      // Load the latest notes and highlights when opening
-      loadNotes();
-      loadHighlights();
+
+      const formattedSummaries: Summary[] = (data || []).map((summary: any) => ({
+        id: summary.id,
+        dotIndex: summary.dot_index,
+        content: summary.content,
+        createdAt: new Date(summary.created_at),
+        updatedAt: new Date(summary.updated_at)
+      }));
+
+      setSummaries(formattedSummaries);
+    } catch (err) {
+      console.error("Unexpected error loading summaries:", err);
     }
-    // Toggle notes panel state
-    setShowNotesPanel(!showNotesPanel);
+  }, [articleId, supabase, user]);
+
+  // Delete a summary
+  const deleteSummary = async (summaryId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await (supabase as any)
+        .from("summaries")
+        .delete()
+        .eq("id", summaryId)
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("Error deleting summary:", error);
+        toast({
+          title: "Error",
+          description: "Failed to delete summary.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Remove the summary from the local state
+      setSummaries(prevSummaries => prevSummaries.filter(summary => summary.id !== summaryId));
+
+      toast({
+        title: "Summary deleted",
+        description: "Your summary has been removed.",
+      });
+    } catch (err) {
+      console.error("Unexpected error deleting summary:", err);
+    }
+  };
+
+  // Update a summary
+  const updateSummary = async (summaryId: string, content: string): Promise<boolean> => {
+    if (!user) return false;
+
+    try {
+      const { error } = await (supabase as any)
+        .from("summaries")
+        .update({ 
+          content,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", summaryId)
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("Error updating summary:", error);
+        toast({
+          title: "Error",
+          description: "Failed to update summary.",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      // Update the summary in local state
+      setSummaries(prevSummaries => 
+        prevSummaries.map(summary => 
+          summary.id === summaryId 
+            ? { ...summary, content, updatedAt: new Date() }
+            : summary
+        )
+      );
+
+      toast({
+        title: "Summary updated",
+        description: "Your summary has been saved.",
+      });
+
+      return true;
+    } catch (err) {
+      console.error("Unexpected error updating summary:", err);
+      return false;
+    }
+  };
+
+  // Handle summary dot click
+  const handleSummaryClick = (dotIndex: number) => {
+    setShowNotesPanel(true);
+    setActiveTab("summary");
+    setPendingSummaryData({ 
+      dotIndex, 
+      articleId,
+      totalDots: Math.ceil((article?.content?.split('</p>').length || 0) / 4)
+    });
+  };
+
+  // Clear pending summary data
+  const clearPendingSummaryData = () => {
+    setPendingSummaryData(null);
+  };
+
+  // Update toggleNotesPanel to handle the new signature
+  const toggleNotesPanel = (highlightId?: string, selectedText?: string) => {
+    if (highlightId && selectedText) {
+      // This is a "Take Note" action - ensure panel is open and set pending note data
+      setShowNotesPanel(true);
+      setActiveTab("notes");
+      setPendingNoteData({ highlightId, selectedText });
+      setActiveHighlightId(highlightId);
+    } else {
+      // This is a regular toggle action - allow closing only if not triggered by "Add Note"
+      setShowNotesPanel(!showNotesPanel);
+    }
+  };
+
+  // Clear pending note data when it's no longer needed
+  const clearPendingNoteData = () => {
+    setPendingNoteData(null);
   };
 
   // Toggle AI panel - close notes panel if open
@@ -489,13 +642,14 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
     }).format(date);
   };
 
-  // Load initial data
+  // Load notes and highlights when article is loaded (since notes panel is always visible)
   useEffect(() => {
     if (article && user) {
-      loadHighlights();
       loadNotes();
+      loadHighlights();
+      loadSummaries();
     }
-  }, [article, user, loadHighlights, loadNotes]);
+  }, [article, user, loadNotes, loadHighlights, loadSummaries]);
 
   // Function to scroll to a highlight and emphasize the related note
   const scrollToHighlight = (highlightId: string, noteId?: string) => {
@@ -512,10 +666,10 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
         setActiveTab("notes");
       }
 
-      // First clean up any existing highlights
-      const existingHighlights = document.querySelectorAll(".highlight-pulse");
+      // First clean up any existing highlight effects
+      const existingHighlights = document.querySelectorAll(".highlight-pulse, .highlight-black-border");
       existingHighlights.forEach(el => {
-        el.classList.remove("highlight-pulse");
+        el.classList.remove("highlight-pulse", "highlight-black-border");
       });
 
       // Set active highlight
@@ -524,8 +678,8 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
       // Scroll to the highlight
       highlightElement.scrollIntoView({ behavior: "smooth", block: "center" });
 
-      // Apply a persistent highlight effect
-      highlightElement.classList.add("highlight-pulse");
+      // Apply both pulse and black border effects - border will persist until user clicks elsewhere
+      highlightElement.classList.add("highlight-pulse", "highlight-black-border");
     }
   };
 
@@ -542,10 +696,10 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
       const isHighlightButton = clickedElement.closest('[data-highlight-button]');
 
       if (!isHighlight && !isNotesPanel && !isHighlightButton) {
-        // Remove pulse from current active highlight
-        const activeHighlights = document.querySelectorAll(".highlight-pulse");
+        // Remove pulse and black border from current active highlight
+        const activeHighlights = document.querySelectorAll(".highlight-pulse, .highlight-black-border");
         activeHighlights.forEach(highlight => {
-          highlight.classList.remove("highlight-pulse");
+          highlight.classList.remove("highlight-pulse", "highlight-black-border");
         });
         setActiveHighlightId(null);
       }
@@ -1135,6 +1289,7 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
 
   // Add handleHighlightSelect function
   const handleHighlightSelect = (highlightId: string) => {
+    console.log("handleHighlightSelect called with:", highlightId);
     setActiveHighlightId(highlightId);
     
     // Find the highlight element in the DOM
@@ -1142,18 +1297,24 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
       `[data-highlight-id="${highlightId}"]`
     );
 
+    console.log("Found highlight element:", highlightElement);
+
     if (highlightElement) {
       // Clear any existing highlight effects
-      const existingHighlights = document.querySelectorAll(".highlight-pulse");
+      const existingHighlights = document.querySelectorAll(".highlight-pulse, .highlight-black-border");
+      console.log("Clearing existing highlights:", existingHighlights.length);
       existingHighlights.forEach(el => {
-        el.classList.remove("highlight-pulse");
+        el.classList.remove("highlight-pulse", "highlight-black-border");
       });
       
       // Scroll to the highlight
       highlightElement.scrollIntoView({ behavior: "smooth", block: "center" });
       
-      // Apply a highlight effect
-      highlightElement.classList.add("highlight-pulse");
+      // Apply both pulse and black border effects - border will persist until user clicks elsewhere
+      highlightElement.classList.add("highlight-pulse", "highlight-black-border");
+      console.log("Applied highlight effects to element:", highlightElement);
+    } else {
+      console.error("Could not find highlight element with ID:", highlightId);
     }
   };
 
@@ -1422,7 +1583,12 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
       />
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div 
+        className="flex-1 overflow-y-auto transition-all duration-300"
+        style={{
+          marginRight: showNotesPanel ? `${notesPanelWidth}px` : '0px'
+        }}
+      >
         <div className="container max-w-4xl mx-auto p-4 sm:p-6">
           {/* Article Header */}
           <div className="mb-6">
@@ -1469,6 +1635,11 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
               className="prose-lg max-w-none dark:prose-invert"
               data-article-content="true"
               dangerouslySetInnerHTML={{ __html: article.content }}
+            />
+            <SummaryManager
+              articleId={articleId}
+              summaries={summaries}
+              onSummaryClick={handleSummaryClick}
             />
             <TextHighlighter
               articleId={articleId}
@@ -1558,15 +1729,23 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
           <NotesPanel
             notes={notes}
             highlights={highlights}
+            summaries={summaries}
             onClose={toggleNotesPanel}
             onDeleteNote={deleteNote}
             onDeleteHighlight={deleteHighlight}
+            onDeleteSummary={deleteSummary}
             onHighlightClick={handleHighlightSelect}
             onUpdateNote={updateNote}
+            onUpdateSummary={updateSummary}
             activeHighlightId={activeHighlightId}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
             onRefreshNotes={loadNotes}
+            onRefreshSummaries={loadSummaries}
+            pendingNoteData={pendingNoteData}
+            pendingSummaryData={pendingSummaryData}
+            onClearPendingNoteData={clearPendingNoteData}
+            onClearPendingSummaryData={clearPendingSummaryData}
           />
         </div>
       )}

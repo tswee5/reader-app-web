@@ -5,6 +5,7 @@ import "./styles.css";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { SupabaseProvider } from "@/components/providers/supabase-provider";
+import { PanelProvider } from "@/components/providers/panel-provider";
 import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
@@ -25,12 +26,14 @@ export default function RootLayout({
     >
       <body className={inter.className}>
         <SupabaseProvider>
-          <div className="flex min-h-screen flex-col">
-            <Header />
-            <main className="flex-1">{children}</main>
-            <Footer />
-          </div>
-          <Toaster />
+          <PanelProvider>
+            <div className="flex min-h-screen flex-col">
+              <Header />
+              <main className="flex-1">{children}</main>
+              <Footer />
+            </div>
+            <Toaster />
+          </PanelProvider>
         </SupabaseProvider>
       </body>
     </html>

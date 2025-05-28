@@ -15,7 +15,7 @@ import {
 interface TextHighlighterProps {
   articleId: string;
   onHighlightCreated?: () => void;
-  onNotesClick?: () => void;
+  onNotesClick?: (highlightId?: string, selectedText?: string) => void;
   onAIChatClick?: (selectedText: string) => void;
 }
 
@@ -322,7 +322,10 @@ export function TextHighlighter({
   const handleTakeNote = async () => {
     if (!selection || !user || !onNotesClick) return;
     
-    // Close the selection popover
+    // Store the selected text before closing the popover
+    const selectedText = selection.toString();
+    
+    // Close the selection popover immediately
     setIsPopoverOpen(false);
     
     try {
@@ -335,9 +338,9 @@ export function TextHighlighter({
           onHighlightCreated();
         }
         
-        // Open the notes panel - the NotesPanel will detect the new highlight
-        // and show the note creation interface
-        onNotesClick();
+        // Open the notes panel with the new highlight and selected text
+        // Pass the highlight ID and selected text to the notes panel
+        onNotesClick(highlight.id, selectedText);
       }
     } catch (error) {
       console.error("Error in take note flow:", error);
@@ -381,7 +384,7 @@ export function TextHighlighter({
               className="flex items-center gap-1"
             >
               <MessageSquare className="h-4 w-4" />
-              <span className="hidden sm:inline">Take Note</span>
+              <span className="hidden sm:inline">Add Note</span>
             </Button>
             
             <Button

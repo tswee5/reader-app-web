@@ -34,7 +34,7 @@ interface ArticleToolbarProps {
   onDeleteClick: () => void;
   onPlayClick?: () => void;
   onNotesClick?: () => void;
-  onAIChatClick?: (selectedText?: string) => void;
+  onAIChatClick?: () => void;
 }
 
 export function ArticleToolbar({ 

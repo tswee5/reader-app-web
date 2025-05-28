@@ -94,6 +94,17 @@ CREATE TABLE collection_articles (
   PRIMARY KEY (collection_id, article_id)
 );
 
+-- Create summaries table
+CREATE TABLE summaries (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  article_id UUID NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+  dot_index INTEGER NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE
+);
+
 -- Create RLS policies
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE articles ENABLE ROW LEVEL SECURITY;
@@ -103,6 +114,7 @@ ALTER TABLE tags ENABLE ROW LEVEL SECURITY;
 ALTER TABLE article_tags ENABLE ROW LEVEL SECURITY;
 ALTER TABLE collections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE collection_articles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE summaries ENABLE ROW LEVEL SECURITY;
 
 -- Users can only see and modify their own data
 CREATE POLICY "Users can view their own data" ON users
@@ -197,6 +209,19 @@ CREATE POLICY "Users can create their own collection articles" ON collection_art
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Users can delete their own collection articles" ON collection_articles
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- Summaries policies
+CREATE POLICY "Users can view their own summaries" ON summaries
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can create their own summaries" ON summaries
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own summaries" ON summaries
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own summaries" ON summaries
   FOR DELETE USING (auth.uid() = user_id);
 
 -- Create function to handle new user creation

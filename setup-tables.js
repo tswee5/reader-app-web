@@ -35,13 +35,15 @@ async function setupTables() {
           statement.includes('CREATE TABLE article_tags') ||
           statement.includes('CREATE TABLE collections') ||
           statement.includes('CREATE TABLE collection_articles') ||
+          statement.includes('CREATE TABLE summaries') ||
           statement.includes('CREATE POLICY') && 
           (statement.includes('highlights') || 
            statement.includes('notes') || 
            statement.includes('tags') || 
            statement.includes('article_tags') || 
            statement.includes('collections') || 
-           statement.includes('collection_articles'))) {
+           statement.includes('collection_articles') ||
+           statement.includes('summaries'))) {
         
         console.log(`Executing: ${statement.substring(0, 100)}...`);
         
