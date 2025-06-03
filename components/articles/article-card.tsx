@@ -200,7 +200,7 @@ export function ArticleCard({ article, onDeleteSuccess }: ArticleCardProps) {
   };
 
   return (
-    <div className="group flex h-full flex-col overflow-hidden rounded-lg border bg-card transition-all hover:shadow-md">
+    <div className="group flex h-full flex-col overflow-hidden dashboard-card transition-all hover:shadow-lg hover:-translate-y-1">
       <div onClick={handleCardClick} className="cursor-pointer">
         {imageUrl && (
           <div className="relative h-48 w-full overflow-hidden">
@@ -216,7 +216,7 @@ export function ArticleCard({ article, onDeleteSuccess }: ArticleCardProps) {
       </div>
       <div className="flex flex-1 flex-col p-4">
         <div className="flex justify-between items-start">
-          <h3 onClick={handleCardClick} className="cursor-pointer line-clamp-2 text-xl font-semibold pr-6">{article.title}</h3>
+          <h3 onClick={handleCardClick} className="cursor-pointer line-clamp-2 text-xl font-semibold pr-6 text-foreground">{article.title}</h3>
           <div onClick={handleMenuClick}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

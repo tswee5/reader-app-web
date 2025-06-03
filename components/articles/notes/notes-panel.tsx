@@ -168,10 +168,10 @@ function NoteItem({
       )}
       
       <div 
-        className={`p-4 rounded-lg border bg-card mx-2 transition-all duration-200 cursor-pointer ${
-          isEditing ? 'border-primary' : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700'
+        className={`dashboard-card mx-2 transition-all duration-200 cursor-pointer hover:shadow-lg hover:-translate-y-1 ${
+          isEditing ? 'border-primary' : 'border-gray-100 hover:border-gray-200'
         } ${isDragging ? 'opacity-50 scale-95' : 'opacity-100 scale-100'} ${
-          isDropTarget ? 'ring-2 ring-primary/20' : ''
+          isDropTarget ? 'ring-2 ring-emerald-200' : ''
         }`}
         draggable={!isEditing}
         onClick={handleNoteClick}
@@ -1210,35 +1210,35 @@ export function NotesPanel({
   };
 
   return (
-    <div className="h-full flex flex-col border-neutral-200 dark:border-neutral-800">
-      <div className="flex justify-center items-center px-4 py-3 border-b border-neutral-200 dark:border-neutral-800">
-        <h2 className="text-lg font-semibold">Notes & Highlights</h2>
+    <div className="h-full flex flex-col floating-panel">
+      <div className="flex justify-center items-center px-6 py-4 border-b border-gray-100">
+        <h2 className="dashboard-header">Notes & Highlights</h2>
         <Button
           variant="ghost"
-          size="icon"
+          size="sm"
           onClick={onClose}
-          className="h-8 w-8 absolute right-2"
+          className="absolute right-2 sidebar-item"
         >
-          <X className="h-4 w-4" />
+          <X className="h-5 w-5" />
         </Button>
       </div>
 
-      <div className="flex justify-center pt-4 pb-2">
+      <div className="flex justify-center pt-6 pb-4">
         <Tabs 
           defaultValue="notes" 
           value={activeTab} 
           onValueChange={(value) => setActiveTab(value as 'notes' | 'highlights' | 'summary')}
           className="w-full"
         >
-          <div className="flex justify-center mb-2">
-            <TabsList className="w-4/5 grid grid-cols-3">
-              <TabsTrigger value="notes">
+          <div className="flex justify-center mb-4">
+            <TabsList className="w-4/5 grid grid-cols-3 dashboard-input-container">
+              <TabsTrigger value="notes" className="rounded-xl">
                 Notes
               </TabsTrigger>
-              <TabsTrigger value="highlights">
+              <TabsTrigger value="highlights" className="rounded-xl">
                 Highlights
               </TabsTrigger>
-              <TabsTrigger value="summary">
+              <TabsTrigger value="summary" className="rounded-xl">
                 Summary
               </TabsTrigger>
             </TabsList>
@@ -1248,7 +1248,7 @@ export function NotesPanel({
             <ScrollArea className="h-[calc(100vh-120px)] px-6 py-2">
               {/* New Note Entry Form */}
               {newNoteMode && activeHighlight && (
-                <div className="mb-4 p-4 rounded-lg border bg-card mx-2 border-primary">
+                <div className="mb-6 dashboard-card mx-2 border-emerald-300">
                   {/* Highlighted text in yellow box */}
                   <div className="mb-2">
                     <span className="inline-block px-2 py-1 rounded text-sm bg-yellow-200 dark:bg-yellow-900">
@@ -1295,7 +1295,7 @@ export function NotesPanel({
                       </Button>
                       <Button 
                         size="sm"
-                        variant="default"
+                        className="btn-emerald"
                         onClick={saveNewNote}
                         disabled={!newNoteContent.trim()}
                       >

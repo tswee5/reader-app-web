@@ -88,23 +88,18 @@ export function ArticleToolbar({
         onMouseLeave={handleMouseLeave}
       >
         <div 
-          className={`flex flex-col items-center space-y-6 py-6 px-2 bg-background/95 backdrop-blur-sm border rounded-lg shadow-md transition-all duration-300 ease-in-out ${
+          className={`flex flex-col items-center space-y-4 dashboard-toolbar transition-all duration-300 ease-in-out ${
             isExpanded 
               ? 'opacity-100 w-16' 
               : 'opacity-75 hover:opacity-90 w-12'
           }`}
-          style={{
-            boxShadow: isExpanded 
-              ? '0 4px 12px rgba(0, 0, 0, 0.1)' 
-              : '0 2px 6px rgba(0, 0, 0, 0.07)'
-          }}
         >
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="rounded-full hover:bg-gray-100 dark:hover:bg-gray-800" 
+                className="sidebar-item" 
                 onClick={() => router.push("/library")}
               >
                 <BookOpen className="h-5 w-5" />
@@ -120,7 +115,7 @@ export function ArticleToolbar({
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="rounded-full hover:bg-gray-100 dark:hover:bg-gray-800" 
+                className="sidebar-item" 
                 onClick={() => {
                   const url = getFormattedUrl(articleUrl);
                   if (url) {
@@ -144,7 +139,7 @@ export function ArticleToolbar({
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+                className="sidebar-item"
                 onClick={onPlayClick}
               >
                 <Play className="h-5 w-5" />
@@ -160,7 +155,7 @@ export function ArticleToolbar({
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="rounded-full hover:bg-gray-100 dark:hover:bg-gray-800" 
+                className="sidebar-item" 
                 onClick={onNotesClick}
               >
                 <MessageSquareText className="h-5 w-5" />
@@ -176,7 +171,7 @@ export function ArticleToolbar({
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="rounded-full hover:bg-gray-100 dark:hover:bg-gray-800" 
+                className="sidebar-item" 
                 onClick={onAIChatClick}
               >
                 <Bot className="h-5 w-5" />
@@ -194,7 +189,7 @@ export function ArticleToolbar({
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="rounded-full hover:bg-gray-100 dark:hover:bg-gray-800" 
+                    className="sidebar-item" 
                   >
                     <Type className="h-5 w-5" />
                   </Button>
@@ -216,7 +211,7 @@ export function ArticleToolbar({
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="rounded-full hover:bg-gray-100 dark:hover:bg-gray-800" 
+                    className="sidebar-item" 
                   >
                     <Settings className="h-5 w-5" />
                   </Button>

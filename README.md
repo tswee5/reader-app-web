@@ -82,6 +82,9 @@ A modern web application for tracking, engaging with, and learning from your rea
    - Create sync mechanism for offline changes
    - Implement download functionality for offline reading
 
+### Phase 5: UX enhancements
+1. 
+
 ## Getting Started
 
 ### Prerequisites
@@ -232,4 +235,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+
 

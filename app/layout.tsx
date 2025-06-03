@@ -24,12 +24,12 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${inter.variable} ${literata.variable} ${merriweather.variable} ${sourceSerif.variable}`}
     >
-      <body className={inter.className}>
+      <body className={`${inter.className} bg-background`}>
         <SupabaseProvider>
           <PanelProvider>
-            <div className="flex min-h-screen flex-col">
+            <div className="flex min-h-screen flex-col bg-background">
               <Header />
-              <main className="flex-1">{children}</main>
+              <main className="flex-1 bg-background">{children}</main>
               <Footer />
             </div>
             <Toaster />

@@ -10,18 +10,18 @@ export function Header() {
   const { user } = useSupabase();
   const { showNotesPanel, showAIPanel, notesPanelWidth, aiPanelWidth } = usePanelContext();
 
-  // Calculate the total width of open panels
-  const totalPanelWidth = (showNotesPanel ? notesPanelWidth : 0) + (showAIPanel ? aiPanelWidth : 0);
+  // Calculate the width of the open panel (only one can be open at a time)
+  const panelWidth = showNotesPanel ? notesPanelWidth : showAIPanel ? aiPanelWidth : 0;
 
   return (
-    <header className="border-b">
+    <header className="border-b bg-background">
       <div 
         className="container flex h-16 items-center justify-between transition-all duration-300"
         style={{
-          marginRight: totalPanelWidth > 0 ? `${totalPanelWidth}px` : '0px'
+          marginRight: panelWidth > 0 ? `${panelWidth}px` : '0px'
         }}
       >
-        <Link href="/" className="font-bold text-xl">
+        <Link href="/" className="dashboard-header">
           Reader App
         </Link>
         <nav className="flex items-center gap-4">

@@ -166,10 +166,17 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
     totalDots?: number;
   } | null>(null);
   
-  // Initialize panel states on mount
+  // Reset panel states when article changes
   useEffect(() => {
-    setShowNotesPanel(true); // Always show notes panel by default for articles
-  }, [setShowNotesPanel]);
+    setShowNotesPanel(false);
+    setShowAIPanel(false);
+  }, [articleId, setShowNotesPanel, setShowAIPanel]);
+  
+  // Additional effect to ensure panels are closed after component mounts
+  useEffect(() => {
+    setShowNotesPanel(false);
+    setShowAIPanel(false);
+  }, []);
   
   // Load saved sidebar width from localStorage on component mount
   useEffect(() => {
@@ -595,17 +602,29 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
     setPendingSummaryData(null);
   };
 
-  // Update toggleNotesPanel to handle the new signature
+  // Update toggleNotesPanel to handle the new signature and close AI panel when opening
   const toggleNotesPanel = (highlightId?: string, selectedText?: string) => {
     if (highlightId && selectedText) {
       // This is a "Take Note" action - ensure panel is open and set pending note data
+      if (showAIPanel) {
+        setShowAIPanel(false);
+      }
       setShowNotesPanel(true);
       setActiveTab("notes");
       setPendingNoteData({ highlightId, selectedText });
       setActiveHighlightId(highlightId);
     } else {
-      // This is a regular toggle action - allow closing only if not triggered by "Add Note"
-      setShowNotesPanel(!showNotesPanel);
+      // This is a regular toggle action
+      if (!showNotesPanel) {
+        // Opening notes panel - close AI panel if it's open
+        if (showAIPanel) {
+          setShowAIPanel(false);
+        }
+        setShowNotesPanel(true);
+      } else {
+        // Closing notes panel
+        setShowNotesPanel(false);
+      }
     }
   };
 
@@ -616,19 +635,16 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
 
   // Toggle AI panel - close notes panel if open
   const toggleAIPanel = () => {
-    // If AI panel is closed and about to be opened
     if (!showAIPanel) {
-      // Close notes panel if it's open
+      // Opening AI panel - close notes panel if it's open
       if (showNotesPanel) {
         setShowNotesPanel(false);
-        toast({
-          title: "AI Reading Buddy opened",
-          duration: 1500,
-        });
       }
+      setShowAIPanel(true);
+    } else {
+      // Closing AI panel
+      setShowAIPanel(false);
     }
-    // Toggle AI panel state
-    setShowAIPanel(!showAIPanel);
   };
 
   // Format date for display
@@ -1586,7 +1602,8 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
       <div 
         className="flex-1 overflow-y-auto transition-all duration-300"
         style={{
-          marginRight: showNotesPanel ? `${notesPanelWidth}px` : '0px'
+          marginLeft: '90px', // Space for the expanded toolbar (80px) + comfortable padding (10px)
+          marginRight: showNotesPanel ? `${notesPanelWidth}px` : showAIPanel ? `${aiPanelWidth}px` : '0px'
         }}
       >
         <div className="container max-w-4xl mx-auto p-4 sm:p-6">
@@ -1658,7 +1675,7 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
           className="border-l bg-background flex flex-col h-screen"
           style={{ 
             position: 'fixed', 
-            right: 0, 
+            right: '0px',
             top: 0, 
             bottom: 0, 
             zIndex: 50,
@@ -1701,7 +1718,7 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
       {showNotesPanel && (
         <div 
           data-notes-panel="true"
-          className="border-l bg-background flex flex-col h-screen"
+          className="floating-panel flex flex-col h-screen"
           style={{ 
             position: 'fixed', 
             right: 0, 

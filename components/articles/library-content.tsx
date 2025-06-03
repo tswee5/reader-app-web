@@ -305,11 +305,11 @@ export function LibraryContent() {
     <>
       {/* Tags filter */}
       {tags.length > 0 && (
-        <div className="mb-6">
+        <div className="dashboard-input-container mb-6">
           <div className="flex items-center space-x-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9">
+                <Button variant="outline" size="sm" className="h-9 rounded-xl">
                   <TagIcon className="mr-2 h-4 w-4" />
                   {selectedTag ? 'Filtered by tag' : 'Filter by tag'}
                   <ChevronDown className="ml-2 h-4 w-4" />

@@ -9,14 +9,14 @@ interface TagColorPickerProps {
 }
 
 const TAG_COLORS = [
+  { name: "emerald", class: "bg-emerald-200 dark:bg-emerald-700", featured: true },
+  { name: "amber", class: "bg-amber-200 dark:bg-amber-700", featured: true },
   { name: "gray", class: "bg-gray-200 dark:bg-gray-700" },
   { name: "red", class: "bg-red-200 dark:bg-red-700" },
   { name: "orange", class: "bg-orange-200 dark:bg-orange-700" },
-  { name: "amber", class: "bg-amber-200 dark:bg-amber-700" },
   { name: "yellow", class: "bg-yellow-200 dark:bg-yellow-700" },
   { name: "lime", class: "bg-lime-200 dark:bg-lime-700" },
   { name: "green", class: "bg-green-200 dark:bg-green-700" },
-  { name: "emerald", class: "bg-emerald-200 dark:bg-emerald-700" },
   { name: "teal", class: "bg-teal-200 dark:bg-teal-700" },
   { name: "cyan", class: "bg-cyan-200 dark:bg-cyan-700" },
   { name: "sky", class: "bg-sky-200 dark:bg-sky-700" },
@@ -41,7 +41,8 @@ export function TagColorPicker({ selectedColor, onColorSelect }: TagColorPickerP
           className={cn(
             "h-8 w-8 rounded-full p-0",
             color.class,
-            selectedColor === color.name && "ring-2 ring-primary"
+            selectedColor === color.name && "ring-2 ring-emerald-500",
+            color.featured && "ring-1 ring-emerald-300"
           )}
           title={`${color.name} color`}
           onClick={() => onColorSelect(color.name)}

@@ -4,10 +4,10 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 0 0% 97.6%; /* Soft off-white #f9f9f9 */
     --foreground: 222.2 84% 4.9%;
 
-    --card: 0 0% 100%;
+    --card: 0 0% 100%; /* Pure white for cards */
     --card-foreground: 222.2 84% 4.9%;
 
     --popover: 0 0% 100%;
@@ -22,17 +22,22 @@
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 160 84% 39%; /* Emerald accent */
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --ring: 160 84% 39%; /* Emerald ring */
 
-    --radius: 0.5rem;
+    --radius: 1rem; /* Increased for rounded-2xl default */
+    
+    /* Custom dashboard colors */
+    --dashboard-emerald: 160 84% 39%;
+    --dashboard-amber: 45 93% 47%;
+    --dashboard-card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   }
 
   .dark {
@@ -54,15 +59,17 @@
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 160 84% 39%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --ring: 160 84% 39%;
+    
+    --dashboard-card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
   }
 }
 
@@ -72,6 +79,61 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  /* Dashboard card styling */
+  .dashboard-card {
+    @apply bg-white rounded-2xl shadow-md p-6;
+    box-shadow: var(--dashboard-card-shadow);
+  }
+  
+  /* Dashboard toolbar styling */
+  .dashboard-toolbar {
+    @apply bg-white rounded-2xl shadow-md p-4;
+    box-shadow: var(--dashboard-card-shadow);
+  }
+  
+  /* Dashboard input container */
+  .dashboard-input-container {
+    @apply bg-white rounded-2xl shadow-md p-4;
+    box-shadow: var(--dashboard-card-shadow);
+  }
+  
+  /* Dashboard section spacing */
+  .dashboard-section {
+    @apply space-y-6;
+  }
+  
+  /* Dashboard header typography */
+  .dashboard-header {
+    @apply text-2xl font-semibold text-foreground;
+  }
+  
+  /* Emerald accent button */
+  .btn-emerald {
+    @apply bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl px-4 py-2 font-medium transition-colors;
+  }
+  
+  /* Amber accent button */
+  .btn-amber {
+    @apply bg-amber-500 hover:bg-amber-600 text-white rounded-xl px-4 py-2 font-medium transition-colors;
+  }
+  
+  /* Floating panel styling */
+  .floating-panel {
+    @apply bg-white rounded-2xl shadow-lg border border-gray-100;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  }
+  
+  /* Sidebar hover effects */
+  .sidebar-item {
+    @apply rounded-xl p-3 transition-all duration-200 hover:bg-gray-50 hover:shadow-sm;
+  }
+  
+  .sidebar-item:hover {
+    transform: translateY(-1px);
   }
 }
 

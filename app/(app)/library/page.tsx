@@ -10,10 +10,10 @@ export const revalidate = 0;
 export default function LibraryPage() {
   return (
     <ProtectedRoute>
-      <div className="container py-10">
-        <div className="mb-8">
+      <div className="container py-10 dashboard-section">
+        <div className="dashboard-card mb-6">
           <div className="mb-4 flex items-center justify-between">
-            <h1 className="text-3xl font-bold">Your Library</h1>
+            <h1 className="dashboard-header">Your Library</h1>
             <AddArticleDialog />
           </div>
           <p className="text-muted-foreground">

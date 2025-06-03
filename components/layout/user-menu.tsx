@@ -32,9 +32,9 @@ export function UserMenu({ user }: UserMenuProps) {
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            {user.email?.charAt(0).toUpperCase() || "U"}
+        <Button variant="ghost" className="relative px-3 py-2">
+          <div className="flex items-center justify-center text-primary">
+            Profile
           </div>
         </Button>
       </DropdownMenuTrigger>
