@@ -194,7 +194,7 @@ export function ArticleToolbar({
                     <Type className="h-5 w-5" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent side="right" className="w-auto p-0" align="start" sideOffset={40}>
+                <PopoverContent side="right" className="w-auto p-0 bg-white dark:bg-gray-900 bg-opacity-100 z-[100] shadow-lg" align="start" sideOffset={40}>
                   <TextFormatSettings />
                 </PopoverContent>
               </Popover>
@@ -216,7 +216,7 @@ export function ArticleToolbar({
                     <Settings className="h-5 w-5" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent side="right" className="p-4 w-64" align="start" sideOffset={40}>
+                <PopoverContent side="right" className="p-4 w-64 bg-white dark:bg-gray-900 bg-opacity-100 z-[100] shadow-lg" align="start" sideOffset={40}>
                   <div className="space-y-4">
                     <h3 className="font-semibold text-lg">Article Settings</h3>
                     

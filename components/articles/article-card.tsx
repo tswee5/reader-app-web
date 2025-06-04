@@ -6,11 +6,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabase } from "@/components/providers/supabase-provider";
 import { useToast } from "@/components/ui/use-toast";
-import { MoreVertical, Trash2 } from "lucide-react";
+import { MoreVertical, Trash2, Tag as TagIcon } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -23,7 +24,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { ArticleTagManager } from "@/components/articles/tags/article-tag-manager";
 
 // Add the Tag type
 type Tag = {
@@ -81,6 +90,8 @@ export function ArticleCard({ article, onDeleteSuccess }: ArticleCardProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showTagDialog, setShowTagDialog] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   
   const createdAt = new Date(article.created_at);
   const timeAgo = formatDistanceToNow(createdAt, { addSuffix: true });
@@ -199,6 +210,19 @@ export function ArticleCard({ article, onDeleteSuccess }: ArticleCardProps) {
     router.push(`/articles/${article.id}`);
   };
 
+  // Handle tag management
+  const handleTagsClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDropdownOpen(false); // Close the dropdown
+    setShowTagDialog(true);
+  };
+
+  // Handle tag dialog close and refresh
+  const handleTagDialogClose = () => {
+    setShowTagDialog(false);
+  };
+
   return (
     <div className="group flex h-full flex-col overflow-hidden dashboard-card transition-all hover:shadow-lg hover:-translate-y-1">
       <div onClick={handleCardClick} className="cursor-pointer">
@@ -218,7 +242,7 @@ export function ArticleCard({ article, onDeleteSuccess }: ArticleCardProps) {
         <div className="flex justify-between items-start">
           <h3 onClick={handleCardClick} className="cursor-pointer line-clamp-2 text-xl font-semibold pr-6 text-foreground">{article.title}</h3>
           <div onClick={handleMenuClick}>
-            <DropdownMenu>
+            <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
@@ -230,9 +254,20 @@ export function ArticleCard({ article, onDeleteSuccess }: ArticleCardProps) {
                   <span className="sr-only">Options</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuContent align="end" className="w-48 bg-white dark:bg-gray-900 bg-opacity-100 z-[100] shadow-lg">
                 <DropdownMenuItem 
-                  onClick={() => setShowDeleteDialog(true)}
+                  onClick={handleTagsClick}
+                  className="cursor-pointer"
+                >
+                  <TagIcon className="mr-2 h-4 w-4" />
+                  <span>Manage Tags</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    setShowDeleteDialog(true);
+                  }}
                   className="cursor-pointer text-destructive focus:text-destructive"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
@@ -334,6 +369,30 @@ export function ArticleCard({ article, onDeleteSuccess }: ArticleCardProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Tag management dialog */}
+      <Dialog open={showTagDialog} onOpenChange={(open) => {
+        setShowTagDialog(open);
+        // If dialog is being closed, refresh the library
+        if (!open && onDeleteSuccess) {
+          onDeleteSuccess();
+        }
+      }}>
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Manage Tags</DialogTitle>
+            <DialogDescription>
+              Add or remove tags for &quot;{article.title}&quot;
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 overflow-hidden">
+            <ArticleTagManager 
+              articleId={article.id} 
+              onTagsChanged={handleTagDialogClose}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 

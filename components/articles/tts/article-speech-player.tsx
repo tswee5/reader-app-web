@@ -739,7 +739,7 @@ export function ArticleSpeechPlayer({ articleId, content, title, onClose }: Arti
                 align="center" 
                 side="top" 
                 sideOffset={5}
-                className="w-24 z-[100]"
+                className="w-24 z-[100] bg-white dark:bg-gray-900 bg-opacity-100 shadow-lg"
               >
                 <DropdownMenuLabel className="px-3 py-2">Playback Speed</DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -769,7 +769,7 @@ export function ArticleSpeechPlayer({ articleId, content, title, onClose }: Arti
                 align="end" 
                 side="top" 
                 sideOffset={5}
-                className="w-56 z-[100]"
+                className="w-56 z-[100] bg-white dark:bg-gray-900 bg-opacity-100 shadow-lg"
               >
                 <DropdownMenuLabel className="px-3 py-2">Voice Selection</DropdownMenuLabel>
                 <DropdownMenuSeparator />

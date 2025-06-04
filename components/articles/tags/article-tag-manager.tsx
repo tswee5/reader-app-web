@@ -1,20 +1,14 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Check, Plus, Tag as TagIcon, X } from "lucide-react";
+import { Check, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { useSupabase } from "@/components/providers/supabase-provider";
 import { useToast } from "@/components/ui/use-toast";
 import { CreateTagDialog } from "@/components/articles/tags/create-tag-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 
 // Helper function to get color classes for tags
 function getTagColorClass(color: string): string {
@@ -47,12 +41,12 @@ interface Tag {
   color: string;
 }
 
-interface TagSelectorProps {
+interface ArticleTagManagerProps {
   articleId: string;
   onTagsChanged?: () => void;
 }
 
-export function TagSelector({ articleId, onTagsChanged }: TagSelectorProps) {
+export function ArticleTagManager({ articleId, onTagsChanged }: ArticleTagManagerProps) {
   const { supabase, user } = useSupabase();
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
@@ -60,7 +54,6 @@ export function TagSelector({ articleId, onTagsChanged }: TagSelectorProps) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
-  const [open, setOpen] = useState(false);
 
   // Fetch all tags for the user
   const fetchTags = useCallback(async () => {
@@ -233,17 +226,7 @@ export function TagSelector({ articleId, onTagsChanged }: TagSelectorProps) {
     } else {
       addTagToArticle(tag);
     }
-    setOpen(false);
   }, [selectedTags, removeTagFromArticle, addTagToArticle]);
-
-  // Handle create new tag
-  const handleCreateNewTagClick = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    setOpen(false);
-    setShowCreateDialog(true);
-  }, []);
 
   // Delete tag entirely from user's collection
   const deleteTag = useCallback(async (e: React.MouseEvent, tag: Tag) => {
@@ -299,112 +282,96 @@ export function TagSelector({ articleId, onTagsChanged }: TagSelectorProps) {
   );
 
   return (
-    <div className="flex flex-wrap gap-2 mb-4">
+    <div className="space-y-4">
       {/* Display existing tags */}
-      {selectedTags.map(tag => (
-        <Badge 
-          key={tag.id} 
-          className={`${getTagColorClass(tag.color)} text-foreground`}
-        >
-          {tag.name}
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-4 w-4 ml-1 p-0"
-            onClick={(e) => removeTagFromArticle(tag.id)}
-          >
-            <X className="h-3 w-3" />
-          </Button>
-        </Badge>
-      ))}
-      
-      {/* Add Tag Button */}
-      <Popover open={open} onOpenChange={(isOpen) => {
-        setOpen(isOpen);
-        if (isOpen) {
-          setSearchQuery(""); // Reset search when opening
-        }
-      }}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-6 px-2 rounded-full text-xs"
-          >
-            <Plus className="h-3 w-3 mr-1" /> New Tag
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent 
-          className="w-[250px] p-0 z-[200] shadow-lg border bg-white dark:bg-gray-900" 
-          align="start"
-          sideOffset={5}
-        >
-          <div className="flex flex-col h-[360px]">
-            {/* Search Input */}
-            <div className="p-3 border-b flex-shrink-0">
-              <Input placeholder="Search tags..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-            </div>
-            
-            {/* Tags List - Scrollable */}
-            <div className="flex-1 min-h-0 relative">
-              <div className="px-2 py-1 flex-shrink-0">
-                <h3 className="text-xs font-medium text-muted-foreground px-2 py-1.5">Your Tags</h3>
-              </div>
-              <div className="absolute inset-x-0 top-[40px] bottom-[1px]">
-                <ScrollArea className="h-full" type="always">
-                  <div className="px-3 pb-2">
-                    {filteredTags.length > 0 ? (
-                      <div className="space-y-1">
-                        {filteredTags.map((tag) => {
-                          const isSelected = selectedTags.some(t => t.id === tag.id);
-                          return (
-                            <div
-                              key={tag.id}
-                              className="flex items-center py-1.5 px-2 cursor-pointer hover:bg-accent hover:text-accent-foreground rounded-sm group"
-                              onClick={(e) => handleTagClick(e, tag)}
-                            >
-                              <div className={`h-3 w-3 rounded-full ${getTagColorClass(tag.color)} mr-2 flex-shrink-0`} />
-                              <span className="flex-1 truncate">{tag.name}</span>
-                              <div className="flex items-center ml-2 gap-1">
-                                {isSelected && <Check className="h-4 w-4 flex-shrink-0" />}
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive hover:text-destructive-foreground"
-                                  onClick={(e) => deleteTag(e, tag)}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="text-center text-muted-foreground py-8 text-sm">
-                        {searchQuery ? `No tags found matching "${searchQuery}"` : "No tags available"}
-                      </div>
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
-            </div>
-            
-            {/* Create New Tag Button - Always Visible at Bottom */}
-            <div className="relative border-t bg-background/95 backdrop-blur-sm shadow-sm flex-shrink-0 z-10">
-              <div className="p-3 bg-background">
-                <div
-                  className="flex items-center py-2 px-3 cursor-pointer hover:bg-accent hover:text-accent-foreground rounded-md border border-dashed border-muted-foreground/30 hover:border-accent-foreground/50 transition-colors"
-                  onClick={handleCreateNewTagClick}
+      {selectedTags.length > 0 && (
+        <div>
+          <h4 className="text-sm font-medium mb-2">Selected Tags</h4>
+          <div className="flex flex-wrap gap-2">
+            {selectedTags.map(tag => (
+              <Badge 
+                key={tag.id} 
+                className={`${getTagColorClass(tag.color)} text-foreground`}
+              >
+                {tag.name}
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-4 w-4 ml-1 p-0"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    removeTagFromArticle(tag.id);
+                  }}
                 >
-                  <Plus className="h-4 w-4 mr-2" />
-                  <span className="font-medium">Create a new tag</span>
-                </div>
-              </div>
-            </div>
+                  <X className="h-3 w-3" />
+                </Button>
+              </Badge>
+            ))}
           </div>
-        </PopoverContent>
-      </Popover>
+        </div>
+      )}
+      
+      {/* New Tag Button */}
+      <div className="flex justify-between items-center">
+        <h4 className="text-sm font-medium">Available Tags</h4>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 px-3 rounded-full text-xs"
+          onClick={() => setShowCreateDialog(true)}
+        >
+          <Plus className="h-3 w-3 mr-1" /> New Tag
+        </Button>
+      </div>
+
+      {/* Search Input */}
+      <div className="space-y-2">
+        <Input 
+          placeholder="Search tags..." 
+          value={searchQuery} 
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="h-9"
+        />
+      </div>
+      
+      {/* Tags List */}
+      <div className="space-y-2">
+        <ScrollArea className="h-[320px] w-full rounded-md border p-2">
+          {filteredTags.length > 0 ? (
+            <div className="space-y-1 pr-3">
+              {filteredTags.map((tag) => {
+                const isSelected = selectedTags.some(t => t.id === tag.id);
+                return (
+                  <div
+                    key={tag.id}
+                    className="flex items-center py-2 px-3 cursor-pointer hover:bg-accent hover:text-accent-foreground rounded-sm border transition-colors group"
+                    onClick={(e) => handleTagClick(e, tag)}
+                  >
+                    <div className={`h-3 w-3 rounded-full ${getTagColorClass(tag.color)} mr-3 flex-shrink-0`} />
+                    <span className="flex-1 truncate">{tag.name}</span>
+                    <div className="flex items-center ml-2 gap-2">
+                      {isSelected && <Check className="h-4 w-4 text-primary flex-shrink-0" />}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive hover:text-destructive-foreground"
+                        onClick={(e) => deleteTag(e, tag)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center text-muted-foreground py-12 text-sm">
+              {searchQuery ? `No tags found matching "${searchQuery}"` : "No tags available"}
+            </div>
+          )}
+        </ScrollArea>
+      </div>
       
       {/* Create Tag Dialog */}
       <CreateTagDialog 

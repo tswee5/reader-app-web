@@ -315,7 +315,7 @@ export function LibraryContent() {
                   <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56">
+              <DropdownMenuContent className="w-56 bg-white dark:bg-gray-900 bg-opacity-100 z-[100] shadow-lg">
                 <DropdownMenuGroup>
                   {tags.map((tag) => (
                     <DropdownMenuItem 
