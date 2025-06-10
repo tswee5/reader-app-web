@@ -57,6 +57,7 @@ interface ArticleCardProps {
     tags?: Tag[]; // Add optional tags array
   };
   onDeleteSuccess?: () => void; // Add callback to refresh the library after deletion
+  onTagsUpdated?: (articleId: string, updatedTags: Tag[]) => void; // Add callback for tag updates
 }
 
 // Helper function to get tag color classes
@@ -84,7 +85,7 @@ function getTagColorClass(color: string): string {
   }
 }
 
-export function ArticleCard({ article, onDeleteSuccess }: ArticleCardProps) {
+export function ArticleCard({ article, onDeleteSuccess, onTagsUpdated }: ArticleCardProps) {
   const router = useRouter();
   const { supabase, user } = useSupabase();
   const { toast } = useToast();
@@ -218,8 +219,14 @@ export function ArticleCard({ article, onDeleteSuccess }: ArticleCardProps) {
     setShowTagDialog(true);
   };
 
-  // Handle tag dialog close and refresh
-  const handleTagDialogClose = () => {
+  // Handle when tags are changed in the tag manager
+  const handleTagsChanged = () => {
+    // We'll let the ArticleTagManager handle the optimistic updates
+    // by passing the updated tags through the callback
+  };
+
+  // Handle closing the tag dialog
+  const handleCloseTagDialog = () => {
     setShowTagDialog(false);
   };
 
@@ -373,10 +380,8 @@ export function ArticleCard({ article, onDeleteSuccess }: ArticleCardProps) {
       {/* Tag management dialog */}
       <Dialog open={showTagDialog} onOpenChange={(open) => {
         setShowTagDialog(open);
-        // If dialog is being closed, refresh the library
-        if (!open && onDeleteSuccess) {
-          onDeleteSuccess();
-        }
+        // When dialog closes, we don't need to refresh the entire library anymore
+        // The ArticleTagManager will handle the updates through onTagsUpdated
       }}>
         <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-hidden">
           <DialogHeader>
@@ -385,12 +390,13 @@ export function ArticleCard({ article, onDeleteSuccess }: ArticleCardProps) {
               Add or remove tags for &quot;{article.title}&quot;
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4 overflow-hidden">
-            <ArticleTagManager 
-              articleId={article.id} 
-              onTagsChanged={handleTagDialogClose}
-            />
-          </div>
+          <ArticleTagManager 
+            articleId={article.id} 
+            onTagsChanged={handleTagsChanged}
+            onTagsUpdated={onTagsUpdated}
+            currentTags={article.tags || []}
+            onClose={handleCloseTagDialog}
+          />
         </DialogContent>
       </Dialog>
     </div>

@@ -261,6 +261,46 @@ export function LibraryContent() {
     }
   }, [user, supabase, adminFetch, fetchArticleTags, fetchTags]);
 
+  // Add function to update tags for a specific article (optimistic update)
+  const updateArticleTags = useCallback((articleId: string, newTags: Tag[]) => {
+    setArticles(prevArticles => 
+      prevArticles.map(article => 
+        article.id === articleId 
+          ? { ...article, tags: newTags }
+          : article
+      )
+    );
+  }, []);
+
+  // Add function to refresh tags for a specific article
+  const refreshArticleTags = useCallback(async (articleId: string) => {
+    if (!user) return;
+    
+    try {
+      const tags = await fetchArticleTags(articleId);
+      updateArticleTags(articleId, tags);
+    } catch (err) {
+      console.error("Error refreshing article tags:", err);
+      // Fall back to full library refresh on error
+      refreshLibrary();
+    }
+  }, [user, fetchArticleTags, updateArticleTags, refreshLibrary]);
+
+  // Add function to handle tag updates with optimistic UI updates
+  const handleTagsUpdated = useCallback(async (articleId: string, updatedTags: Tag[]) => {
+    // Optimistically update the UI immediately
+    updateArticleTags(articleId, updatedTags);
+    
+    // Refresh tags list in case new tags were created
+    await fetchTags();
+    
+    // Optionally verify the update by refreshing the specific article's tags
+    // This ensures the UI matches the database state
+    setTimeout(() => {
+      refreshArticleTags(articleId);
+    }, 1000);
+  }, [updateArticleTags, fetchTags, refreshArticleTags]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-12">
@@ -328,7 +368,7 @@ export function LibraryContent() {
                           getTagColorClass(tag.color)
                         )}
                       />
-                      <span className="flex-1">{tag.name}</span>
+                      {tag.name}
                       {selectedTagId === tag.id && (
                         <Check className="h-4 w-4 ml-2" />
                       )}
@@ -373,7 +413,8 @@ export function LibraryContent() {
       <ArticleList 
         articles={articles} 
         selectedTagId={selectedTagId || undefined} 
-        onRefresh={refreshLibrary} 
+        onRefresh={refreshLibrary}
+        onTagsUpdated={handleTagsUpdated}
       />
     </>
   );

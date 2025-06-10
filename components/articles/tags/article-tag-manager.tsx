@@ -44,16 +44,24 @@ interface Tag {
 interface ArticleTagManagerProps {
   articleId: string;
   onTagsChanged?: () => void;
+  onTagsUpdated?: (articleId: string, updatedTags: Tag[]) => void;
+  currentTags?: Tag[];
+  onClose?: () => void;
 }
 
-export function ArticleTagManager({ articleId, onTagsChanged }: ArticleTagManagerProps) {
+export function ArticleTagManager({ articleId, onTagsChanged, onTagsUpdated, currentTags = [], onClose }: ArticleTagManagerProps) {
   const { supabase, user } = useSupabase();
   const [tags, setTags] = useState<Tag[]>([]);
-  const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
+  const [selectedTags, setSelectedTags] = useState<Tag[]>(currentTags);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
+
+  // Update selectedTags when currentTags prop changes
+  useEffect(() => {
+    setSelectedTags(currentTags);
+  }, [currentTags]);
 
   // Fetch all tags for the user
   const fetchTags = useCallback(async () => {
@@ -145,20 +153,26 @@ export function ArticleTagManager({ articleId, onTagsChanged }: ArticleTagManage
       }
       
       // Update selected tags
-      setSelectedTags(prev => [...prev, tag]);
+      const newSelectedTags = [...selectedTags, tag];
+      setSelectedTags(newSelectedTags);
       
       toast({
         title: "Tag added",
         description: `Added "${tag.name}" to this article`,
       });
       
+      // Call both callbacks
       if (onTagsChanged) {
         onTagsChanged();
+      }
+      
+      if (onTagsUpdated) {
+        onTagsUpdated(articleId, newSelectedTags);
       }
     } catch (err) {
       console.error("Error adding tag to article:", err);
     }
-  }, [user, supabase, articleId, toast, onTagsChanged]);
+  }, [user, supabase, articleId, selectedTags, toast, onTagsChanged, onTagsUpdated]);
 
   // Remove tag from article
   const removeTagFromArticle = useCallback(async (tagId: string) => {
@@ -182,7 +196,8 @@ export function ArticleTagManager({ articleId, onTagsChanged }: ArticleTagManage
       }
       
       // Update selected tags
-      setSelectedTags(prev => prev.filter(tag => tag.id !== tagId));
+      const newSelectedTags = selectedTags.filter(tag => tag.id !== tagId);
+      setSelectedTags(newSelectedTags);
       
       const tagName = selectedTags.find(tag => tag.id === tagId)?.name;
       toast({
@@ -190,13 +205,18 @@ export function ArticleTagManager({ articleId, onTagsChanged }: ArticleTagManage
         description: `Removed "${tagName}" from this article`,
       });
       
+      // Call both callbacks
       if (onTagsChanged) {
         onTagsChanged();
+      }
+      
+      if (onTagsUpdated) {
+        onTagsUpdated(articleId, newSelectedTags);
       }
     } catch (err) {
       console.error("Error removing tag from article:", err);
     }
-  }, [user, supabase, articleId, selectedTags, toast, onTagsChanged]);
+  }, [user, supabase, articleId, selectedTags, toast, onTagsChanged, onTagsUpdated]);
 
   // Handle tag creation
   const handleTagCreated = useCallback(async (tagId: string) => {
@@ -226,7 +246,15 @@ export function ArticleTagManager({ articleId, onTagsChanged }: ArticleTagManage
     } else {
       addTagToArticle(tag);
     }
-  }, [selectedTags, removeTagFromArticle, addTagToArticle]);
+    
+    // Close the dialog after tag selection
+    if (onClose) {
+      // Add a small delay to allow the user to see the tag change
+      setTimeout(() => {
+        onClose();
+      }, 300);
+    }
+  }, [selectedTags, removeTagFromArticle, addTagToArticle, onClose]);
 
   // Delete tag entirely from user's collection
   const deleteTag = useCallback(async (e: React.MouseEvent, tag: Tag) => {
@@ -271,10 +299,14 @@ export function ArticleTagManager({ articleId, onTagsChanged }: ArticleTagManage
       if (onTagsChanged) {
         onTagsChanged();
       }
+      
+      if (onTagsUpdated) {
+        onTagsUpdated(articleId, selectedTags.filter(t => t.id !== tag.id));
+      }
     } catch (err) {
       console.error("Error deleting tag:", err);
     }
-  }, [user, supabase, toast, onTagsChanged]);
+  }, [user, supabase, toast, onTagsChanged, onTagsUpdated, articleId, selectedTags]);
 
   // Filter tags based on search query
   const filteredTags = tags.filter(tag => 

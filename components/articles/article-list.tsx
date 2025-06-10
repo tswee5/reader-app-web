@@ -24,9 +24,10 @@ interface ArticleListProps {
   }>;
   selectedTagId?: string; // Add an optional selected tag for filtering
   onRefresh?: () => void; // Add a callback to refresh the articles list
+  onTagsUpdated?: (articleId: string, updatedTags: Tag[]) => void; // Add callback for tag updates
 }
 
-export function ArticleList({ articles, selectedTagId, onRefresh }: ArticleListProps) {
+export function ArticleList({ articles, selectedTagId, onRefresh, onTagsUpdated }: ArticleListProps) {
   // Local state to track deleted article IDs
   const [deletedArticleIds, setDeletedArticleIds] = useState<string[]>([]);
 
@@ -69,6 +70,7 @@ export function ArticleList({ articles, selectedTagId, onRefresh }: ArticleListP
           key={article.id} 
           article={article} 
           onDeleteSuccess={() => handleDeleteSuccess(article.id)}
+          onTagsUpdated={onTagsUpdated}
         />
       ))}
     </div>
