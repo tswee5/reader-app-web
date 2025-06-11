@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -26,6 +26,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { supabase } = useSupabase();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,21 +39,47 @@ export function LoginForm() {
     },
   });
 
+  // Handle URL errors on mount
+  useEffect(() => {
+    const urlError = searchParams.get('error');
+    if (urlError) {
+      if (urlError.includes('email_not_confirmed')) {
+        setError("Please check your email and click the verification link before signing in.");
+      } else if (urlError === 'authentication_failed') {
+        setError("Authentication failed. Please try again.");
+      } else {
+        setError(decodeURIComponent(urlError));
+      }
+      
+      // Clear the error from URL without triggering navigation
+      const url = new URL(window.location.href);
+      url.searchParams.delete('error');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [searchParams]);
+
   async function onSubmit(data: LoginFormValues) {
     setIsLoading(true);
     setError(null);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,
       });
 
-      if (error) {
-        setError(error.message);
+      if (signInError) {
+        if (signInError.message.includes('email_not_confirmed')) {
+          setError("Please verify your email address before signing in. Check your inbox for a verification link.");
+        } else if (signInError.message.includes('invalid_credentials')) {
+          setError("Invalid email or password. Please check your credentials and try again.");
+        } else {
+          setError(signInError.message);
+        }
         return;
       }
 
+      // Successful login - redirect to library
       router.push("/library");
       router.refresh();
     } catch (error) {
@@ -106,6 +133,7 @@ export function LoginForm() {
             <Button
               variant="link"
               className="p-0"
+              type="button"
               onClick={() => router.push("/reset-password")}
             >
               Forgot password?

@@ -50,23 +50,42 @@ export function SignUpForm() {
     setError(null);
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: {
+            email_confirm: true,
+          }
         },
       });
 
-      if (error) {
-        setError(error.message);
+      if (signUpError) {
+        if (signUpError.message.includes('already_registered')) {
+          setError("An account with this email already exists. Please try signing in instead.");
+        } else if (signUpError.message.includes('weak_password')) {
+          setError("Password is too weak. Please choose a stronger password with at least 8 characters.");
+        } else {
+          setError(signUpError.message);
+        }
         return;
       }
 
-      router.push("/signup-success");
+      // Check if email confirmation is required
+      if (authData.user && !authData.session) {
+        // Email confirmation required - redirect to success page
+        router.push("/signup-success");
+      } else if (authData.user && authData.session) {
+        // User was created and signed in immediately (shouldn't happen with email confirmation)
+        router.push("/library");
+      } else {
+        // Unexpected state
+        setError("An unexpected error occurred during registration. Please try again.");
+      }
     } catch (error) {
+      console.error("Signup error:", error);
       setError("An unexpected error occurred. Please try again.");
-      console.error(error);
     } finally {
       setIsLoading(false);
     }
@@ -122,7 +141,9 @@ export function SignUpForm() {
             )}
           />
           {error && (
-            <div className="text-sm font-medium text-destructive">{error}</div>
+            <div className="text-sm font-medium text-destructive bg-red-50 dark:bg-red-950/30 p-3 rounded-md">
+              {error}
+            </div>
           )}
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? "Creating account..." : "Create account"}
@@ -134,6 +155,13 @@ export function SignUpForm() {
         <Button variant="link" className="p-0" onClick={() => router.push("/login")}>
           Sign in
         </Button>
+      </div>
+      
+      <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
+        <p>
+          By creating an account, you'll receive an email to verify your address. 
+          Check your inbox (and spam folder) after signing up.
+        </p>
       </div>
     </div>
   );
