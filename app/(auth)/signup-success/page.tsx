@@ -2,28 +2,60 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSupabase } from "@/components/providers/supabase-provider";
+import { useSearchParams } from "next/navigation";
 import { Mail, CheckCircle, RefreshCw } from "lucide-react";
 
 export default function SignUpSuccessPage() {
   const { supabase } = useSupabase();
+  const searchParams = useSearchParams();
   const [isResending, setIsResending] = useState(false);
   const [resent, setResent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
+
+  // Extract email from URL parameters
+  useEffect(() => {
+    const emailParam = searchParams.get('email');
+    if (emailParam) {
+      setEmail(decodeURIComponent(emailParam));
+    }
+  }, [searchParams]);
 
   const handleResendEmail = async () => {
+    if (!email) {
+      setError("Email address not found. Please try signing up again.");
+      return;
+    }
+
     setIsResending(true);
     setError(null);
     
-    // We can't resend without knowing the email, but we can provide instructions
-    // In a real implementation, you might store the email temporarily or pass it via URL params
-    
-    setIsResending(false);
+    try {
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email: email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        }
+      });
+
+      if (resendError) {
+        setError(resendError.message);
+        return;
+      }
+
     setResent(true);
     
     // Reset the "resent" state after a few seconds
     setTimeout(() => setResent(false), 5000);
+    } catch (error) {
+      setError("An unexpected error occurred while resending the email. Please try again.");
+      console.error("Resend error:", error);
+    } finally {
+      setIsResending(false);
+    }
   };
 
   return (

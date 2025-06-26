@@ -3,20 +3,33 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, ArrowRight } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabase } from "@/components/providers/supabase-provider";
 
 export default function EmailVerifiedPage() {
   const router = useRouter();
   const { user } = useSupabase();
+  const [isNewUser, setIsNewUser] = useState(false);
 
-  // If user is already authenticated, redirect to library
+  // Check if this is a new user and redirect accordingly
   useEffect(() => {
     if (user) {
+      // Check if user has completed onboarding by looking for display_name
+      const hasDisplayName = user.user_metadata?.display_name || user.user_metadata?.full_name;
+      
+      if (!hasDisplayName) {
+        // New user - redirect to onboarding
+        setIsNewUser(true);
+        setTimeout(() => {
+          router.push("/onboarding");
+        }, 3000); // Give them time to read the message
+      } else {
+        // Returning user - redirect to library
       setTimeout(() => {
         router.push("/library");
-      }, 3000); // Give them time to read the message
+        }, 3000);
+      }
     }
   }, [user, router]);
 
@@ -36,7 +49,10 @@ export default function EmailVerifiedPage() {
           {user ? (
             <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
               <p className="text-sm text-green-800 dark:text-green-200">
-                You're all set! Redirecting you to your library...
+                {isNewUser 
+                  ? "Setting up your account..." 
+                  : "You're all set! Redirecting you to your library..."
+                }
               </p>
             </div>
           ) : (
@@ -51,8 +67,8 @@ export default function EmailVerifiedPage() {
         <div className="space-y-3">
           {user ? (
             <Button asChild className="w-full">
-              <Link href="/library">
-                Go to Library
+              <Link href={isNewUser ? "/onboarding" : "/library"}>
+                {isNewUser ? "Start Setup" : "Go to Library"}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Link>
             </Button>

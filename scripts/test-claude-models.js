@@ -9,19 +9,21 @@ require('dotenv').config({ path: '.env.local' });
 
 // Define models directly here since we can't import TypeScript modules
 const CLAUDE_MODELS = {
-  // Most powerful model - best for complex reasoning
-  OPUS: 'claude-3-opus-20240229',
+  // Latest Claude 4 models (most powerful)
+  OPUS_4: 'claude-opus-4-20250514',
+  SONNET_4: 'claude-sonnet-4-20250514',
   
-  // Balanced model - good general purpose usage
-  SONNET: 'claude-3-5-sonnet-20241022',  // Latest version (Oct 2024)
-  SONNET_OLD: 'claude-3-5-sonnet-20240620', // Previous version
+  // Claude 3.7 models (latest 3.x series)
+  SONNET_3_7: 'claude-3-7-sonnet-20250219',
   
-  // Fastest and most economical model
-  HAIKU: 'claude-3-5-haiku-20241022',
-  HAIKU_OLD: 'claude-3-haiku-20240307',
+  // Claude 3.5 models (stable and cost-effective)
+  SONNET_3_5: 'claude-3-5-sonnet-20241022',
+  HAIKU_3_5: 'claude-3-5-haiku-20241022',
   
-  // Experimental model with higher capabilities
-  SONNET_NEXT: 'claude-3-7-sonnet-20250219'
+  // Legacy models (for backward compatibility)
+  OPUS_3: 'claude-3-opus-20240229',
+  HAIKU_3: 'claude-3-haiku-20240307',
+  SONNET_3_5_OLD: 'claude-3-5-sonnet-20240620'
 };
 
 // Get the latest API version to use with Claude
@@ -40,14 +42,13 @@ const apiVersions = [
   getClaudeApiVersion() // Use the recommended version
 ];
 
-// Test different model formats
-const modelTests = [
-  CLAUDE_MODELS.SONNET,
-  CLAUDE_MODELS.OPUS,
-  CLAUDE_MODELS.HAIKU,
-  CLAUDE_MODELS.SONNET_OLD,
-  CLAUDE_MODELS.HAIKU_OLD,
-  CLAUDE_MODELS.SONNET_NEXT
+// Test different models
+const modelsToTest = [
+  CLAUDE_MODELS.SONNET_4,
+  CLAUDE_MODELS.SONNET_3_7,
+  CLAUDE_MODELS.SONNET_3_5,
+  CLAUDE_MODELS.OPUS_4,
+  CLAUDE_MODELS.HAIKU_3_5
 ];
 
 /**
@@ -143,7 +144,7 @@ async function main() {
   console.log('=========================');
   
   for (const apiVersion of apiVersions) {
-    for (const model of modelTests) {
+    for (const model of modelsToTest) {
       await testModel(apiVersion, model);
     }
   }

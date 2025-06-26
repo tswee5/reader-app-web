@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useSupabase } from "@/components/providers/supabase-provider";
+import { enhancedErrorRecovery } from "@/lib/auth/enhanced-error-recovery";
 
 const signUpSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -50,6 +51,7 @@ export function SignUpForm() {
     setError(null);
 
     try {
+      // Temporarily disable enhanced error recovery to test auth callback
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
@@ -62,20 +64,15 @@ export function SignUpForm() {
       });
 
       if (signUpError) {
-        if (signUpError.message.includes('already_registered')) {
-          setError("An account with this email already exists. Please try signing in instead.");
-        } else if (signUpError.message.includes('weak_password')) {
-          setError("Password is too weak. Please choose a stronger password with at least 8 characters.");
-        } else {
-          setError(signUpError.message);
-        }
+        setError(signUpError.message);
         return;
       }
 
       // Check if email confirmation is required
       if (authData.user && !authData.session) {
-        // Email confirmation required - redirect to success page
-        router.push("/signup-success");
+        // Email confirmation required - redirect to success page with email
+        const emailParam = encodeURIComponent(data.email);
+        router.push(`/signup-success?email=${emailParam}`);
       } else if (authData.user && authData.session) {
         // User was created and signed in immediately (shouldn't happen with email confirmation)
         router.push("/library");

@@ -126,12 +126,13 @@ export async function POST(req: Request) {
 
     // Skip article verification for test articles
     let articleExists = isTestMode;
+    let articleUrl: string | null = null;
     
     if (!articleExists) {
-      // Verify article access using the service client with admin rights
+      // Verify article access and get URL using the service client with admin rights
       const { data: article, error: articleError } = await supabaseService
         .from('articles')
-        .select('id')
+        .select('id, url')
         .eq('id', articleId)
         .eq('user_id', userId)
         .single();
@@ -144,6 +145,7 @@ export async function POST(req: Request) {
       }
       
       articleExists = true;
+      articleUrl = article.url;
     }
 
     // Check if API key is configured
@@ -163,53 +165,184 @@ export async function POST(req: Request) {
       });
     }
 
-    // Truncate content if it's very long
-    const truncatedContent = content.length > 8000 
-      ? content.substring(0, 8000) + "..." 
-      : content;
-
-    // Prepare the prompt for Claude
-    const prompt = `
-Please provide a comprehensive yet concise summary of the following article. 
-Highlight the main points, key arguments, and significant conclusions.
-
-Article:
-"""
-${truncatedContent}
-"""
-
-Your summary should:
-1. Capture the essence of the article in a structured format
-2. Be clear and informative
-3. Be around 3-5 paragraphs
-`;
-
-    // Call Claude API with x-api-key header
-    console.log("Calling Claude API...");
+    // Prepare the prompt for Claude using web search tool when URL is available
+    let prompt: string;
+    let response;
+    let claudeResponse;
     
-    // Always use x-api-key header
-    const apiHeaders = {
-      'Content-Type': 'application/json',
-      'anthropic-version': getClaudeApiVersion(),
-      'x-api-key': CLAUDE_API_KEY
-    };
-    
-    const response = await fetch(CLAUDE_API_URL, {
-      method: 'POST',
-      headers: apiHeaders,
-      body: JSON.stringify({
-        model: CLAUDE_MODELS.SONNET,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
+    if (articleUrl) {
+      // Use web search tool to access the article URL
+      console.log('Using web search tool to summarize:', articleUrl);
+      
+      prompt = `You are a knowledgeable and helpful AI assistant. You have access to web search capabilities and can access current information from the internet.
+
+      Please provide a comprehensive yet concise summary of the content available at: ${articleUrl}
+
+      Use the web search tool to access and analyze this content, then provide a summary. You can also draw upon your training data and web search to provide additional context or background information that would enhance the summary.
+
+      Your summary should:
+      1. Capture the essence of the content in a structured format
+      2. Be clear and informative
+      3. Be around 3-5 paragraphs
+      4. Include any relevant context or background information that would be helpful
+      `;
+
+      // Call Claude API with web search tool
+      response = await fetch(CLAUDE_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'anthropic-version': getClaudeApiVersion(),
+          'x-api-key': CLAUDE_API_KEY
+        },
+        body: JSON.stringify({
+          model: CLAUDE_MODELS.SONNET_4,
+          messages: [
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          max_tokens: 1500,
+          temperature: 0.5,
+          tools: [{
+            type: "web_search_20250305",
+            name: "web_search",
+            max_uses: 3
+          }]
+        }),
+      });
+
+      if (response.ok) {
+        claudeResponse = await response.json();
+        const summary = claudeResponse.content
+          .filter((item: any) => item.type === 'text')
+          .map((item: any) => item.text)
+          .join('');
+        
+        // Check if web search failed or couldn't access the URL
+        if (summary.toLowerCase().includes("cannot access") || 
+            summary.toLowerCase().includes("cannot browse") ||
+            summary.toLowerCase().includes("cannot visit") ||
+            summary.toLowerCase().includes("cannot retrieve") ||
+            summary.toLowerCase().includes("not found") ||
+            summary.toLowerCase().includes("error")) {
+          
+          console.log('Web search could not access URL, falling back to content-based approach');
+          
+          // Fallback to content-based approach
+          const truncatedContent = content.length > 50000 
+            ? content.substring(0, 50000) + "..." 
+            : content;
+            
+          prompt = `You are a knowledgeable and helpful AI assistant. You have access to web search capabilities and can access current information from the internet.
+
+          Please provide a comprehensive yet concise summary of the following content:
+          """
+          ${truncatedContent}
+          """
+
+          You can also use web search to find additional relevant information, background context, or related insights that would enhance the summary.
+
+          Your summary should:
+          1. Capture the essence of the content in a structured format
+          2. Be clear and informative
+          3. Be around 3-5 paragraphs
+          4. Include any relevant context or background information that would be helpful
+          `;
+
+          response = await fetch(CLAUDE_API_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'anthropic-version': getClaudeApiVersion(),
+              'x-api-key': CLAUDE_API_KEY
+            },
+            body: JSON.stringify({
+              model: CLAUDE_MODELS.SONNET_4,
+              messages: [
+                {
+                  role: 'user',
+                  content: prompt
+                }
+              ],
+              max_tokens: 1500,
+              temperature: 0.5,
+              tools: [{
+                type: "web_search_20250305",
+                name: "web_search",
+                max_uses: 2
+              }]
+            }),
+          });
+          
+          if (response.ok) {
+            claudeResponse = await response.json();
           }
-        ],
-        max_tokens: 1500,
-        temperature: 0.5
-      }),
-    });
+        }
+      }
+    } else {
+      // Direct content-based approach (no URL available)
+      console.log('Using content-based summarization (no URL available)');
+      
+      const truncatedContent = content.length > 50000 
+        ? content.substring(0, 50000) + "..." 
+        : content;
 
+      prompt = `You are a knowledgeable and helpful AI assistant. You have access to web search capabilities and can access current information from the internet.
+
+      Please provide a comprehensive yet concise summary of the following content:
+      """
+      ${truncatedContent}
+      """
+
+      You can also use web search to find additional relevant information, background context, or related insights that would enhance the summary.
+
+      Your summary should:
+      1. Capture the essence of the content in a structured format
+      2. Be clear and informative
+      3. Be around 3-5 paragraphs
+      4. Include any relevant context or background information that would be helpful
+      `;
+
+      response = await fetch(CLAUDE_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'anthropic-version': getClaudeApiVersion(),
+          'x-api-key': CLAUDE_API_KEY
+        },
+        body: JSON.stringify({
+          model: CLAUDE_MODELS.SONNET_4,
+          messages: [
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          max_tokens: 1500,
+          temperature: 0.5,
+          tools: [{
+            type: "web_search_20250305",
+            name: "web_search",
+            max_uses: 2
+          }]
+        }),
+      });
+
+      if (response.ok) {
+        claudeResponse = await response.json();
+      }
+    }
+
+    if (!response || !claudeResponse) {
+      return NextResponse.json(
+        { error: "Failed to generate summary" },
+        { status: 500 }
+      );
+    }
+
+    // Handle API errors
     if (!response.ok) {
       const errorText = await response.text();
       let errorData;
@@ -225,6 +358,18 @@ Your summary should:
         errorData
       });
       
+      // Handle rate limit errors specifically
+      if (response.status === 429) {
+        return NextResponse.json(
+          { 
+            error: "Rate limit exceeded", 
+            details: "You've exceeded the API rate limit. Please wait a moment and try again.",
+            retryAfter: response.headers.get('retry-after')
+          },
+          { status: 429 }
+        );
+      }
+      
       return NextResponse.json(
         { 
           error: "Failed to generate summary",
@@ -234,8 +379,10 @@ Your summary should:
       );
     }
 
-    const claudeResponse = await response.json();
-    const summary = claudeResponse.content[0].text;
+    const summary = claudeResponse.content
+      .filter((item: any) => item.type === 'text')
+      .map((item: any) => item.text)
+      .join('');
     
     // Log the summary generation in the database using service client
     await supabaseService

@@ -115,10 +115,8 @@ export function ArticleSummarizer({ articleId, content }: ArticleSummarizerProps
         }
       }
       
-      // Truncate content if it's very long to avoid API limits
-      const truncatedContent = content.length > 8000 
-        ? content.substring(0, 8000) + "..." 
-        : content;
+      // Use the hybrid approach - let the server handle URL vs content
+      const fullContent = content;
 
       // Add a timestamp to avoid caching issues
       const timestamp = new Date().getTime();
@@ -134,7 +132,7 @@ export function ArticleSummarizer({ articleId, content }: ArticleSummarizerProps
         },
         body: JSON.stringify({
           articleId,
-          content: truncatedContent,
+          content: fullContent,
         }),
         credentials: "include", // Include auth cookies
         cache: "no-store" // Prevent caching
@@ -281,11 +279,11 @@ export function ArticleSummarizer({ articleId, content }: ArticleSummarizerProps
 
         {summary && !isLoading && !error && (
           <div className="prose prose-sm max-w-none dark:prose-invert">
-            <ReactMarkdown
-              className="text-sm leading-relaxed"
-            >
-              {summary}
-            </ReactMarkdown>
+            <div className="text-sm leading-relaxed">
+              <ReactMarkdown>
+                {summary}
+              </ReactMarkdown>
+            </div>
             <Button 
               variant="ghost" 
               size="sm" 

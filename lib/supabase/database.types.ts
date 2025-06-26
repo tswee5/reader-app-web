@@ -164,6 +164,7 @@ export interface Database {
           content: string
           created_at: string
           updated_at: string
+          sort_order: number
         }
         Insert: {
           id?: string
@@ -173,6 +174,7 @@ export interface Database {
           content: string
           created_at?: string
           updated_at?: string
+          sort_order?: number
         }
         Update: {
           id?: string
@@ -182,6 +184,7 @@ export interface Database {
           content?: string
           created_at?: string
           updated_at?: string
+          sort_order?: number
         }
         Relationships: [
           {
@@ -283,6 +286,7 @@ export interface Database {
           title: string | null
           created_at: string
           updated_at: string
+          context: string | null
         }
         Insert: {
           id?: string
@@ -291,6 +295,7 @@ export interface Database {
           title?: string | null
           created_at?: string
           updated_at?: string
+          context?: string | null
         }
         Update: {
           id?: string
@@ -299,6 +304,7 @@ export interface Database {
           title?: string | null
           created_at?: string
           updated_at?: string
+          context?: string | null
         }
         Relationships: [
           {

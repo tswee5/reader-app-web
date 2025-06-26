@@ -105,7 +105,11 @@ Used by the Article Summarizer to generate article summaries.
 
 ## Best Practices
 
-1. **Content Truncation**: The application automatically truncates very long articles to 8,000 characters when sending to the AI to prevent API limits from being reached.
+1. **Hybrid Content Approach**: The application uses a smart hybrid approach that:
+   - First attempts to use the article URL for cost-efficient AI processing
+   - Falls back to sending article content if the URL is not accessible
+   - Automatically handles very long articles without content loss
+   - Reduces API costs while maintaining full functionality
 
 2. **Error Handling**: All AI features have proper error handling to provide a good user experience even when the AI service is unavailable.
 
@@ -119,3 +123,33 @@ If you encounter issues with the AI features:
 2. Check the console for error messages
 3. Ensure you have sufficient API credits in your Claude account
 4. For very long articles, try breaking your questions into smaller, more specific queries 
+
+## Hybrid Content Approach
+
+The Reader App implements an intelligent approach for AI interactions that leverages Claude's web search tool for optimal performance:
+
+### How It Works
+
+1. **Web Search Tool**: When an article has a public URL, Claude uses its built-in web search tool to directly access and analyze the article content
+2. **Automatic Fallback**: If the web search cannot access the URL (due to paywalls, authentication, etc.), it automatically falls back to using the full article content
+3. **No Content Loss**: Unlike simple truncation, this approach ensures the AI always has access to the complete article content
+4. **Cost Optimization**: Using web search when possible reduces token usage and API costs
+
+### Benefits
+
+- **Lower API Costs**: Web search requests use fewer tokens than sending full content
+- **Better Performance**: Faster response times for articles with accessible URLs
+- **Full Coverage**: No content is lost, even for very long articles
+- **Automatic Handling**: Users don't need to worry about content length limits
+- **Real-time Access**: Claude can access the most up-to-date version of articles
+
+### Technical Implementation
+
+The system uses Claude's web search tool (`web_search_20250305`) which is available on:
+- Claude Opus 4 (`claude-opus-4-20250514`)
+- Claude Sonnet 4 (`claude-sonnet-4-20250514`)
+- Claude Sonnet 3.7 (`claude-3-7-sonnet-20250219`)
+- Claude Sonnet 3.5 (new) (`claude-3-5-sonnet-latest`)
+- Claude Haiku 3.5 (`claude-3-5-haiku-latest`)
+
+The system detects when web search cannot access a URL and automatically retries with the full article content. This ensures seamless user experience regardless of the article's accessibility. 

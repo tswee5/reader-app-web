@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useSupabase } from "@/components/providers/supabase-provider";
+import { enhancedErrorRecovery } from "@/lib/auth/enhanced-error-recovery";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -43,13 +44,8 @@ export function LoginForm() {
   useEffect(() => {
     const urlError = searchParams.get('error');
     if (urlError) {
-      if (urlError.includes('email_not_confirmed')) {
-        setError("Please check your email and click the verification link before signing in.");
-      } else if (urlError === 'authentication_failed') {
-        setError("Authentication failed. Please try again.");
-      } else {
-        setError(decodeURIComponent(urlError));
-      }
+      const userFriendlyError = enhancedErrorRecovery.getErrorMessage({ message: urlError });
+      setError(userFriendlyError);
       
       // Clear the error from URL without triggering navigation
       const url = new URL(window.location.href);
@@ -63,19 +59,20 @@ export function LoginForm() {
     setError(null);
 
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
-      });
+      const { error: signInError } = await enhancedErrorRecovery.authenticateWithRecovery(
+        () => supabase.auth.signInWithPassword({
+          email: data.email,
+          password: data.password,
+        }),
+        {
+          maxAttempts: 2,
+          baseDelay: 1000,
+        }
+      );
 
       if (signInError) {
-        if (signInError.message.includes('email_not_confirmed')) {
-          setError("Please verify your email address before signing in. Check your inbox for a verification link.");
-        } else if (signInError.message.includes('invalid_credentials')) {
-          setError("Invalid email or password. Please check your credentials and try again.");
-        } else {
-          setError(signInError.message);
-        }
+        const userFriendlyError = enhancedErrorRecovery.getErrorMessage(signInError);
+        setError(userFriendlyError);
         return;
       }
 
@@ -83,7 +80,8 @@ export function LoginForm() {
       router.push("/library");
       router.refresh();
     } catch (error) {
-      setError("An unexpected error occurred. Please try again.");
+      const userFriendlyError = enhancedErrorRecovery.getErrorMessage(error);
+      setError(userFriendlyError);
       console.error(error);
     } finally {
       setIsLoading(false);

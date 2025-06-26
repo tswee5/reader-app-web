@@ -347,10 +347,8 @@ export const ArticleAIAssistant = forwardRef<ArticleAIAssistantRef, ArticleAIAss
       setIsLoading(true);
       
       try {
-        // Truncate content if it's very long to avoid API limits
-        const truncatedContent = content.length > 8000 
-          ? content.substring(0, 8000) + "..." 
-          : content;
+        // Use the hybrid approach - let the server handle URL vs content
+        const fullContent = content;
 
         // Ensure we have a conversation ID
         let conversationId = activeConversationId;
@@ -376,7 +374,7 @@ export const ArticleAIAssistant = forwardRef<ArticleAIAssistantRef, ArticleAIAss
           },
           body: JSON.stringify({
             articleId,
-            article: { content: truncatedContent, id: articleId },
+            article: { content: fullContent, id: articleId },
             currentMessage: messageText,
             conversationHistory: conversationHistory,
             conversationId: conversationId

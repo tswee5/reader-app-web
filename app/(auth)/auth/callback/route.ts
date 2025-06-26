@@ -12,6 +12,15 @@ export async function GET(request: NextRequest) {
   const errorDescription = requestUrl.searchParams.get("error_description");
   const type = requestUrl.searchParams.get("type");
 
+  // Add detailed logging for debugging
+  console.log("Auth callback received:", {
+    code: code ? "present" : "missing",
+    error,
+    errorDescription,
+    type,
+    url: request.url
+  });
+
   // Handle auth errors (prevents unwanted redirects)
   if (error) {
     console.error("Auth callback error:", error, errorDescription);
@@ -31,12 +40,18 @@ export async function GET(request: NextRequest) {
     const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore });
     
     try {
+      console.log("Attempting to exchange code for session...");
       const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
       
       if (exchangeError) {
         console.error("Error exchanging code for session:", exchangeError);
         return NextResponse.redirect(`${requestUrl.origin}/login?error=${encodeURIComponent(exchangeError.message)}`);
       }
+
+      console.log("Code exchange successful:", {
+        user: data.user?.id ? "present" : "missing",
+        session: data.session ? "present" : "missing"
+      });
 
       // Check the type of authentication flow
       if (type === "recovery" || type === "password_recovery") {
@@ -49,6 +64,12 @@ export async function GET(request: NextRequest) {
         // Check if this is a new user verification (vs returning user)
         const isNewVerification = !data.user.last_sign_in_at || 
           (data.user.email_confirmed_at && new Date(data.user.email_confirmed_at) > new Date(data.user.last_sign_in_at));
+        
+        console.log("User verification status:", {
+          isNewVerification,
+          lastSignIn: data.user.last_sign_in_at,
+          emailConfirmed: data.user.email_confirmed_at
+        });
         
         if (isNewVerification) {
           return NextResponse.redirect(`${requestUrl.origin}/email-verified`);
@@ -68,5 +89,6 @@ export async function GET(request: NextRequest) {
   }
 
   // No code provided - redirect to home
+  console.log("No auth code provided, redirecting to home");
   return NextResponse.redirect(requestUrl.origin);
 } 

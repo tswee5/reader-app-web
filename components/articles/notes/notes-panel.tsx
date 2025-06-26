@@ -712,6 +712,8 @@ export function NotesPanel({
   const [dragOverHighlightId, setDragOverHighlightId] = useState<string | null>(null);
   const [dragOverSummaryId, setDragOverSummaryId] = useState<string | null>(null);
   const [dropPosition, setDropPosition] = useState<'above' | 'below' | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { supabase, user } = useSupabase();
   const { toast } = useToast();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
