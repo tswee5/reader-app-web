@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSupabase } from "@/components/providers/supabase-provider";
 import { useSearchParams } from "next/navigation";
 import { Mail, CheckCircle, RefreshCw } from "lucide-react";
 
-export default function SignUpSuccessPage() {
+function SignUpSuccessContent() {
   const { supabase } = useSupabase();
   const searchParams = useSearchParams();
   const [isResending, setIsResending] = useState(false);
@@ -125,5 +125,22 @@ export default function SignUpSuccessPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignUpSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="container flex h-screen w-screen flex-col items-center justify-center">
+        <div className="mx-auto max-w-md space-y-6 text-center">
+          <div className="flex items-center justify-center w-16 h-16 mx-auto bg-blue-100 dark:bg-blue-900/30 rounded-full mb-4">
+            <Mail className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+          </div>
+          <h1 className="text-3xl font-bold">Loading...</h1>
+        </div>
+      </div>
+    }>
+      <SignUpSuccessContent />
+    </Suspense>
   );
 } 

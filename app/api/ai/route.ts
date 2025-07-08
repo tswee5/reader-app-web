@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // /app/api/ai/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
@@ -115,7 +117,7 @@ ${prompt}
         "anthropic-version": getClaudeApiVersion()
       },
       body: JSON.stringify({
-        model: CLAUDE_MODELS.OPUS,
+        model: CLAUDE_MODELS.OPUS_4,
         max_tokens: 4000,
         temperature: 0.5,
         messages: [{ role: "user", content: userMessage }]
