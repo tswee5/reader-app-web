@@ -1,4 +1,4 @@
--- Add a context column to store article content/context for the conversation
-ALTER TABLE ai_conversations ADD COLUMN context TEXT NULL;
--- Optionally, you can add a comment for clarity
-COMMENT ON COLUMN ai_conversations.context IS 'Stores article content or context for the conversation';
+-- This file is no longer used for manual updates.
+-- The enhanced AI chat system includes an automated migration script that will handle all the database schema updates for you.
+-- To run the migration, simply execute the following command from your project root:
+-- npm run migrate-ai-chat

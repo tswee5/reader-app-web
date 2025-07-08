@@ -1709,6 +1709,7 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
               ref={aiAssistantRef}
               articleId={articleId}
               content={article.content}
+              articleUrl={article.url}
             />
           </div>
         </div>

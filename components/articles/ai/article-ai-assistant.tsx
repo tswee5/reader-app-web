@@ -83,10 +83,11 @@ export interface ArticleAIAssistantRef {
 interface ArticleAIAssistantProps {
   articleId: string;
   content: string;
+  articleUrl?: string;
 }
 
 export const ArticleAIAssistant = forwardRef<ArticleAIAssistantRef, ArticleAIAssistantProps>(
-  function ArticleAIAssistant({ articleId, content }, ref) {
+  function ArticleAIAssistant({ articleId, content, articleUrl }, ref) {
     const { supabase } = useSupabase();
     const { toast } = useToast();
     const [isLoadingConversations, setIsLoadingConversations] = useState(false);
@@ -377,7 +378,8 @@ export const ArticleAIAssistant = forwardRef<ArticleAIAssistantRef, ArticleAIAss
             article: { content: fullContent, id: articleId },
             currentMessage: messageText,
             conversationHistory: conversationHistory,
-            conversationId: conversationId
+            conversationId: conversationId,
+            articleUrl: articleUrl
           }),
         });
         
@@ -413,11 +415,41 @@ export const ArticleAIAssistant = forwardRef<ArticleAIAssistantRef, ArticleAIAss
         const aiMessage: Message = {
           id: Date.now().toString(),
           role: "assistant",
-          content: data.answer || data.response || "I'm sorry, I couldn't generate a response.",
+          content: data.response || "I'm sorry, I couldn't generate a response.",
           created_at: new Date().toISOString()
         };
         
         setMessages(prev => [...prev, aiMessage]);
+
+        // Update conversation state if provided
+        if (data.conversationState) {
+          // Store conversation state for potential future use
+          // This could be used to show token usage, web snippets, etc.
+          console.log('Conversation state updated:', {
+            tokenUsage: data.tokenUsage,
+            isFirstMessage: data.isFirstMessage,
+            webSnippets: data.webSnippets?.length || 0
+          });
+
+          // Show notification for first message
+          if (data.isFirstMessage) {
+            toast({
+              title: "Article analyzed",
+              description: "I've analyzed the article and performed web search for additional context.",
+              duration: 3000,
+            });
+          }
+
+          // Show warning if approaching token limit
+          if (data.tokenUsage > 72000) {
+            toast({
+              title: "Token limit warning",
+              description: "Conversation is approaching the token limit. Consider starting a new conversation.",
+              variant: "destructive",
+              duration: 5000,
+            });
+          }
+        }
       } catch (error) {
         console.error("Error getting AI response:", error);
         

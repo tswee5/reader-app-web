@@ -11,7 +11,9 @@
     "lint:fix": "next lint --fix",
     "update-claude-key": "node scripts/update-claude-key.js",
     "test-claude-api": "node scripts/test-claude-api.js",
-    "test-claude-models": "node scripts/test-claude-models.js"
+    "test-claude-models": "node scripts/test-claude-models.js",
+    "migrate-ai-chat": "node scripts/run-ai-migration.js",
+    "test-enhanced-ai-chat": "node scripts/test-enhanced-ai-chat.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",

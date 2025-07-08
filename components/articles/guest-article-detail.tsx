@@ -712,11 +712,12 @@ export function GuestArticleDetail({ article }: GuestArticleDetailProps) {
             </div>
             
             <div className="flex-1 overflow-hidden">
-              <ArticleAIAssistant 
-                ref={aiAssistantRef}
-                articleId={article.id}
-                content={article.content}
-              />
+                          <ArticleAIAssistant 
+              ref={aiAssistantRef}
+              articleId={article.id}
+              content={article.content}
+              articleUrl={article.url}
+            />
             </div>
             
             {/* Demo upgrade prompt at bottom */}
