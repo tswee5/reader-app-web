@@ -123,6 +123,16 @@ export async function POST(req: Request) {
     
     // Handle specific error types
     if (error instanceof Error) {
+      if (error.message.includes('API key not configured')) {
+        return NextResponse.json(
+          { 
+            error: "AI service configuration error", 
+            details: "Claude API key not configured. Please set CLAUDE_API_KEY or ANTHROPIC_API_KEY in your environment variables." 
+          },
+          { status: 500 }
+        );
+      }
+      
       if (error.message.includes('Claude API error')) {
         return NextResponse.json(
           { 
@@ -137,16 +147,6 @@ export async function POST(req: Request) {
         return NextResponse.json(
           { error: "Conversation not found or access denied" },
           { status: 404 }
-        );
-      }
-      
-      if (error.message.includes('API key not configured')) {
-        return NextResponse.json(
-          { 
-            error: "AI service configuration error", 
-            details: "API key not configured. Contact the site administrator." 
-          },
-          { status: 500 }
         );
       }
     }
