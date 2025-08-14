@@ -26,7 +26,8 @@ import {
   Edit,
   Trash,
   ArrowRight,
-  ExternalLink
+  ExternalLink,
+  FileText
 } from "lucide-react";
 import {
   AlertDialog,
@@ -39,6 +40,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ArticleToolbar } from "@/components/articles/toolbar/article-toolbar";
+import { MobileArticleToolbar } from "@/components/articles/toolbar/mobile-article-toolbar";
+import { MobileBottomSheet } from "@/components/articles/mobile-bottom-sheet";
 import { usePanelContext } from "@/components/providers/panel-provider";
 
 type Article = {
@@ -127,12 +130,8 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
   // Add state for AI panel tab
   const [aiActiveTab, setAIActiveTab] = useState<string>("chat");
   
-  // Add state for mobile panel height
-  const [mobilePanelHeight, setMobilePanelHeight] = useState(50); // Default 50vh (half screen)
-  const minPanelHeight = 25; // Minimum 25vh
-  const maxPanelHeight = 90; // Maximum 90vh
-  const [touchStartY, setTouchStartY] = useState(0);
-  const [initialHeight, setInitialHeight] = useState(0);
+  // Add state for mobile toolbar expansion
+  const [mobileToolbarExpanded, setMobileToolbarExpanded] = useState(false);
   
   // Add state for delete confirmation dialog
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -194,7 +193,7 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
   // Check for mobile view on mount and resize
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 640);
+      setIsMobile(window.innerWidth < 768); // Increased breakpoint for better mobile experience
     };
     
     // Initial check
@@ -953,65 +952,7 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
     return `${Math.round(calculateFontSize * 1.5)}px`;
   }, [calculateFontSize]);
 
-  // Add touch event handlers for mobile panel resizing
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (!isMobile) return;
-    setTouchStartY(e.touches[0].clientY);
-    setInitialHeight(mobilePanelHeight);
-    setIsResizing(true);
-  };
 
-  const handleTouchMove = useCallback((e: TouchEvent) => {
-    if (!isResizing || !isMobile) return;
-    
-    const touchY = e.touches[0].clientY;
-    const deltaY = touchStartY - touchY;
-    const deltaVh = (deltaY / window.innerHeight) * 100;
-    
-    // Increase height when dragging up, decrease when dragging down
-    const newHeight = Math.max(
-      minPanelHeight,
-      Math.min(maxPanelHeight, initialHeight + deltaVh)
-    );
-    
-    setMobilePanelHeight(newHeight);
-  }, [isResizing, isMobile, touchStartY, initialHeight, minPanelHeight, maxPanelHeight]);
-
-  const handleTouchEnd = useCallback(() => {
-    if (!isMobile) return;
-    setIsResizing(false);
-    
-    // Save panel height preference
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('mobilePanelHeight', mobilePanelHeight.toString());
-    }
-  }, [isMobile, mobilePanelHeight]);
-
-  // Load saved mobile panel height from localStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined' && isMobile) {
-      const savedHeight = localStorage.getItem('mobilePanelHeight');
-      if (savedHeight) {
-        const height = parseInt(savedHeight, 10);
-        if (!isNaN(height) && height >= minPanelHeight && height <= maxPanelHeight) {
-          setMobilePanelHeight(height);
-        }
-      }
-    }
-  }, [isMobile, minPanelHeight, maxPanelHeight]);
-
-  // Add effect to set up touch event listeners
-  useEffect(() => {
-    if (isMobile) {
-      document.addEventListener('touchmove', handleTouchMove, { passive: false });
-      document.addEventListener('touchend', handleTouchEnd);
-    }
-    
-    return () => {
-      document.removeEventListener('touchmove', handleTouchMove);
-      document.removeEventListener('touchend', handleTouchEnd);
-    };
-  }, [isMobile, handleTouchMove, handleTouchEnd]);
 
   // Handle AI panel resizing
   const startResize = useCallback((e: React.MouseEvent) => {
@@ -1588,29 +1529,51 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      {/* Replace the old Left Vertical Toolbar with our new component */}
-      <ArticleToolbar 
-        articleId={articleId} 
-        articleUrl={article?.url} 
-        onDeleteClick={() => setShowDeleteDialog(true)}
-        onPlayClick={toggleTTSPlayer}
-        onNotesClick={toggleNotesPanel}
-        onAIChatClick={() => toggleAIPanel()}
-      />
+      {/* Desktop Toolbar */}
+      {!isMobile && (
+        <ArticleToolbar 
+          articleId={articleId} 
+          articleUrl={article?.url} 
+          onDeleteClick={() => setShowDeleteDialog(true)}
+          onPlayClick={toggleTTSPlayer}
+          onNotesClick={toggleNotesPanel}
+          onAIChatClick={() => toggleAIPanel()}
+        />
+      )}
+
+      {/* Mobile Toolbar */}
+      {isMobile && (
+        <MobileArticleToolbar
+          articleId={articleId}
+          articleUrl={article?.url}
+          onDeleteClick={() => setShowDeleteDialog(true)}
+          onPlayClick={toggleTTSPlayer}
+          onNotesClick={toggleNotesPanel}
+          onAIChatClick={() => toggleAIPanel()}
+          isExpanded={mobileToolbarExpanded}
+          onToggleExpanded={() => setMobileToolbarExpanded(!mobileToolbarExpanded)}
+        />
+      )}
 
       {/* Main Content */}
       <div 
-        className="flex-1 overflow-y-auto transition-all duration-300"
+        className={`flex-1 overflow-y-auto transition-all duration-300 ${isMobile ? 'pb-32' : ''}`}
         style={{
-          marginLeft: '90px', // Space for the expanded toolbar (80px) + comfortable padding (10px)
-          marginRight: showNotesPanel ? `${notesPanelWidth}px` : showAIPanel ? `${aiPanelWidth}px` : '0px'
+          marginLeft: isMobile ? '0px' : '90px', // Space for the expanded toolbar (80px) + comfortable padding (10px)
+          marginRight: isMobile ? '0px' : (showNotesPanel ? `${notesPanelWidth}px` : showAIPanel ? `${aiPanelWidth}px` : '0px')
         }}
       >
-        <div className="container max-w-4xl mx-auto p-4 sm:p-6">
+        <div className={`${isMobile ? 'w-full px-4' : 'container max-w-4xl mx-auto'} p-4 sm:p-6`}>
           {/* Article Header */}
           <div className="mb-6">
-            <h1 className="text-3xl sm:text-4xl font-bold mb-2">{article.title}</h1>
+            <h1 className={`${isMobile ? 'text-2xl' : 'text-3xl sm:text-4xl'} font-bold mb-2`}>{article.title}</h1>
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground mb-4">
+              {article.url?.startsWith('pdf://') && (
+                <span className="flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-md text-xs font-medium">
+                  <FileText className="h-3 w-3" />
+                  PDF Document
+                </span>
+              )}
               {article.author && <span>By {article.author}</span>}
               {article.published_date && (
                 <span className="flex items-center">
@@ -1647,9 +1610,9 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
           )}
 
           {/* Article Content */}
-          <div className="prose dark:prose-invert max-w-none mb-20">
+          <div className={`prose dark:prose-invert max-w-none ${isMobile ? 'mb-32' : 'mb-20'}`}>
             <article
-              className="prose-lg max-w-none dark:prose-invert"
+              className={`${isMobile ? 'prose-base' : 'prose-lg'} max-w-none dark:prose-invert mobile-scroll`}
               data-article-content="true"
               dangerouslySetInnerHTML={{ __html: article.content }}
             />
@@ -1709,7 +1672,7 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
               ref={aiAssistantRef}
               articleId={articleId}
               content={article.content}
-              articleUrl={article.url}
+              articleUrl={article.url || undefined}
             />
           </div>
         </div>
@@ -1776,6 +1739,60 @@ export function ArticleDetail({ articleId }: ArticleDetailProps) {
           title={article.title}
           onClose={() => setShowTTSPlayer(false)}
         />
+      )}
+
+      {/* Mobile Bottom Sheets */}
+      {isMobile && (
+        <>
+          {/* AI Chat Bottom Sheet */}
+          <MobileBottomSheet
+            isOpen={showAIPanel}
+            onClose={toggleAIPanel}
+            title="AI Reading Buddy"
+            initialHeight={60}
+            minHeight={40}
+            maxHeight={85}
+          >
+            <ArticleAIAssistant 
+              ref={aiAssistantRef}
+              articleId={articleId}
+              content={article.content}
+              articleUrl={article.url || undefined}
+            />
+          </MobileBottomSheet>
+
+          {/* Notes Bottom Sheet */}
+          <MobileBottomSheet
+            isOpen={showNotesPanel}
+            onClose={toggleNotesPanel}
+            title="Notes & Highlights"
+            initialHeight={60}
+            minHeight={40}
+            maxHeight={85}
+          >
+            <NotesPanel
+              notes={notes}
+              highlights={highlights}
+              summaries={summaries}
+              onClose={toggleNotesPanel}
+              onDeleteNote={deleteNote}
+              onDeleteHighlight={deleteHighlight}
+              onDeleteSummary={deleteSummary}
+              onHighlightClick={handleHighlightSelect}
+              onUpdateNote={updateNote}
+              onUpdateSummary={updateSummary}
+              activeHighlightId={activeHighlightId}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              onRefreshNotes={loadNotes}
+              onRefreshSummaries={loadSummaries}
+              pendingNoteData={pendingNoteData}
+              pendingSummaryData={pendingSummaryData}
+              onClearPendingNoteData={clearPendingNoteData}
+              onClearPendingSummaryData={clearPendingSummaryData}
+            />
+          </MobileBottomSheet>
+        </>
       )}
 
       {/* Delete Dialog */}

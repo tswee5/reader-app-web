@@ -98,6 +98,36 @@
   /* Dashboard input container */
   .dashboard-input-container {
     @apply bg-white rounded-2xl shadow-md p-4;
+  }
+  
+  /* Mobile-specific styles */
+  @media (max-width: 768px) {
+    /* Improve touch targets */
+    .mobile-touch-target {
+      @apply min-h-[44px] min-w-[44px];
+    }
+    
+    /* Better mobile scrolling */
+    .mobile-scroll {
+      -webkit-overflow-scrolling: touch;
+      scroll-behavior: smooth;
+    }
+    
+    /* Mobile bottom sheet animations */
+    .mobile-bottom-sheet {
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    /* Mobile toolbar */
+    .mobile-toolbar {
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+  }
+  
+  /* Dashboard card styling */
+  .dashboard-card {
+    @apply bg-white rounded-2xl shadow-md p-6;
     box-shadow: var(--dashboard-card-shadow);
   }
   

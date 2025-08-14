@@ -69,6 +69,11 @@ export function ArticleToolbar({
   const getFormattedUrl = (url: string | null | undefined) => {
     if (!url) return null;
     
+    // Handle PDF URLs
+    if (url.startsWith('pdf://')) {
+      return null; // PDFs don't have external links
+    }
+    
     // Check if the URL already includes a protocol
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return url;
@@ -77,6 +82,9 @@ export function ArticleToolbar({
     // Add https:// protocol if missing
     return `https://${url}`;
   };
+
+  // Check if this is a PDF article
+  const isPDF = articleUrl?.startsWith('pdf://');
 
   return (
     <TooltipProvider>
@@ -116,6 +124,7 @@ export function ArticleToolbar({
                 variant="ghost" 
                 size="icon" 
                 className="sidebar-item" 
+                disabled={isPDF}
                 onClick={() => {
                   const url = getFormattedUrl(articleUrl);
                   if (url) {
@@ -130,7 +139,7 @@ export function ArticleToolbar({
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right" className="font-medium">
-              <p>Open Original Link</p>
+              <p>{isPDF ? "PDF - No External Link" : "Open Original Link"}</p>
             </TooltipContent>
           </Tooltip>
           

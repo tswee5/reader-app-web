@@ -43,7 +43,7 @@ export function AddArticleDialog() {
         <DialogHeader>
           <DialogTitle>Add New Article</DialogTitle>
           <DialogDescription>
-            Enter the URL of the article you want to save for later reading.
+            Enter the URL of an article or upload a PDF file to save for later reading.
           </DialogDescription>
         </DialogHeader>
         <AddArticleForm onSuccess={handleSuccess} />
